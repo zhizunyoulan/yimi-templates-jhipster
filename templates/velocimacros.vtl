@@ -1,0 +1,419 @@
+#macro( mybatisResultMapFields $nestedFields $deep = 1 )## A
+#set( $primaryKeyCount = 0 )
+#foreach ($field in $nestedFields)## A-1
+#if($field.primaryKey)## A-1-1
+#set( $primaryKeyCount = $primaryKeyCount + 1 )
+#end## A-1-1
+#end## A-1
+#foreach ($field in $nestedFields)## A-2
+    #if($field.nestInfo == $null)## A-2-2
+        #if($field.primaryKey && $primaryKeyCount == 1)## A-2-2-1
+#foreach ($i in [0..$deep])    #end<id property="${field.property}" column="${field.columnName}" jdbcType="${field.jdbcType}"/>
+        #else## A-2-2-1
+#foreach ($i in [0..$deep])    #end<result property="#getFirstNonNull( [$field.selectProperties.propAlias, $field.property])" column="#getFirstNonNull( [$field.selectProperties.columnAlias, $field.columnName])" jdbcType="${field.jdbcType}"/>
+        #end## A-2-2-1
+    #else## A-2-2
+        #set( $nextDeep = $deep + 1 )
+        #if($field.nestInfo.type == 'collection')## A-2-2-1
+#if($field.nestedFields.size() > 0)## A-2-2-1-1
+#foreach ($i in [0..$deep])    #end<collection property="${field.property}" ofType="${field.nestInfo.ofJavaType}" #if(${field.nestInfo.columnPrefix} != $null)columnPrefix="${field.nestInfo.columnPrefix}"#end>
+                #mybatisResultMapFields( $field.nestedFields $nextDeep )
+#foreach ($i in [0..$deep])    #end</collection>
+#end## A-2-2-1-1
+        #else## A-2-2-1
+#if($field.nestedFields.size() > 0)## A-2-2-1-1
+#foreach ($i in [0..$deep])    #end<association property="${field.property}" javaType="${field.nestInfo.javaType}" #if(${field.nestInfo.columnPrefix} != $null)columnPrefix="${field.nestInfo.columnPrefix}"#end>
+                #mybatisResultMapFields( $field.nestedFields $nextDeep )
+#foreach ($i in [0..$deep])    #end</association>
+#end## A-2-2-1-1
+        #end## A-2-2-1
+    #end## A-2-2
+#end## A-2
+#end## A
+
+
+#macro( sqlPlainConditionExpression $field $left $param $value )## A
+#set( $operator = $field.conditionProperties.operator )
+#set( $right = $null )
+#if( $field.conditionProperties.valueType == 'constant')## A-1
+#if( $field.jdbcType == 'TIMESTAMP' || $field.jdbcType == 'DATE' || $field.jdbcType == 'TIME' )## A-1-1
+#if( $value == "currentDateTime" )## A-1-1-1
+#set( $right = "NOW()" )
+#elseif( $value == "currentDate" )## A-1-1-1
+#set( $right = "CURDATE()" )
+#elseif( $value == "currentTime" )## A-1-1-1
+#set( $right = "CURTIME()" )
+#elseif( $value == "currentMonthStart" )## A-1-1-1
+#set( $right = "DATE_FORMAT(CURDATE(), '%Y-%m-01')" )
+#elseif( $value == "currentYearStart" )## A-1-1-1
+#set( $right = "DATE_FORMAT(CURDATE(), '%Y-01-01')" )
+#end## A-1-1-1
+#else## A-1-1
+#if( $field.javaType == 'java.lang.String' || $field.javaType == 'java.lang.Character' )## A-1-1-1
+#set( $right = "'$value'" )
+#else## A-1-1-1
+#set( $right = $value )
+#end## A-1-1-1
+#end## A-1-1
+#else## A-1
+#set( $right = "#{$param}" )
+#end## A-1
+#if( ${operator} == "gt" )
+${left} <![CDATA[>]]> ${right}#elseif ( ${operator} == "ge" )
+${left} <![CDATA[>=]]> ${right}#elseif ( ${operator} == "lt" )
+${left} <![CDATA[<]]> ${right}#elseif ( ${operator} == "le" )
+${left} <![CDATA[<=]]> ${right}#elseif ( ${operator} == "like" )
+${left} like concat('%', ${right}, '%')#elseif ( ${operator} == "likeLeft" )
+${left} like concat('%', ${right})#elseif ( ${operator} == "likeRight" )
+${left} like concat(${right}, '%')#else
+${left} = ${right}#end
+#end## A
+
+#macro( betweenConditionExpression $field $left $startParam $endParam $startValue $endValue )## A
+#set( $startValPart = $null )
+#set( $endValPart = $null )
+#if( $field.conditionProperties.valueType == 'constant' )## A-1
+#if( $field.jdbcType == 'TIMESTAMP' || $field.jdbcType == 'DATE' || $field.jdbcType == 'TIME' )## A-1-1
+#if( $startValue == "currentDateTime" )## A-1-1-1
+#set( $startValPart = "NOW()" )
+#elseif( $startValue == "currentDate" )## A-1-1-1
+#set( $startValPart = "CURDATE()" )
+#elseif( $startValue == "currentTime" )## A-1-1-1
+#set( $startValPart = "CURTIME()" )
+#elseif( $startValue == "currentMonthStart" )## A-1-1-1
+#set( $startValPart = "DATE_FORMAT(CURDATE(), '%Y-%m-01')" )
+#elseif( $startValue == "currentYearStart" )## A-1-1-1
+#set( $startValPart = "DATE_FORMAT(CURDATE(), '%Y-01-01')" )
+#end## A-1-1-1
+#if( $endValue == "currentDateTime" )## A-1-1-2
+#set( $endValPart = "NOW()" )
+#elseif( $endValue == "currentDate" )## A-1-1-2
+#set( $endValPart = "CURDATE()" )
+#elseif( $endValue == "currentTime" )## A-1-1-2
+#set( $endValPart = "CURTIME()" )
+#elseif( $endValue == "currentMonthStart" )## A-1-1-2
+#set( $endValPart = "DATE_FORMAT(CURDATE(), '%Y-%m-01')" )
+#elseif( $endValue == "currentYearStart" )## A-1-1-2
+#set( $endValPart = "DATE_FORMAT(CURDATE(), '%Y-01-01')" )
+#end## A-1-1-2
+#else## A-1-1
+#if( $field.javaType == 'java.lang.String' || $field.javaType == 'java.lang.Character' )## A-1-1-1
+#set( $startValPart = "'$startValue'" )
+#set( $endValPart = "'$endValue'" )
+#else## A-1-1-1
+#set( $startValPart = $startValue )
+#set( $endValPart = $endValue )
+#end## A-1-1-1
+#end## A-1-1
+#else## A-1
+#set( $startValPart = "#{$startParam}" )
+#set( $endValPart = "#{$endParam}" )
+#end## A-1
+${leftPart} between $startValPart and $endValPart#end## A
+
+
+#macro( conditionPart $field $needTableName $first $indent )## A
+#if( $first )## A-1
+#set( $andPart = "" )
+#else## A-1
+#set( $andPart = "AND " )
+#end## A-1
+#set( $leftPart = "" )
+#if($needTableName)## A-2
+#if($field.tableAlias != $null)## A-2-1
+#set( $leftPart = "${field.tableAlias}." )
+#else## A-2-1
+#set( $leftPart = "${field.tableName}." )
+#end## A-2-1
+#end## A-2
+#set( $leftPart = "${leftPart}${field.columnName}" )
+#if ( ${field.conditionProperties.operator} == "isNull" )## A-3
+#foreach ($i in [0..$indent])    #end${andPart}${leftPart} IS NULL
+#elseif ( ${field.conditionProperties.operator} == "isNotNull" )## A-3
+#foreach ($i in [0..$indent])    #end${andPart}${leftPart} IS NOT NULL
+#elseif ( ${field.conditionProperties.operator} == "between" )## A-3
+#set( $nestedProps = ${field.conditionProperties.betweenLeftProp.split("\.")} )
+#if( $field.conditionProperties.required || $field.conditionProperties.valueType == 'constant' )## A-3-1
+#foreach ($i in [0..$indent])    #end${andPart}#betweenConditionExpression( $field $leftPart $field.conditionProperties.betweenLeftProp $field.conditionProperties.betweenRightProp $field.conditionProperties.betweenLeftValue $field.conditionProperties.betweenRightValue )
+#elseif($field.conditionProperties.nullHandle == 'isNull')## A-3-1
+#foreach ($i in [0..$indent])    #end<choose>
+#foreach ($i in [0..$indent])    #end   <when test="#if($nestedProps.size() > 1 )$nestedProps[0] != null and #{end}$field.conditionProperties.betweenLeftProp != null and $field.conditionProperties.betweenRightProp != null">
+#foreach ($i in [0..$indent])    #end       ${andPart}#betweenConditionExpression( $field $leftPart $field.conditionProperties.betweenLeftProp $field.conditionProperties.betweenRightProp $field.conditionProperties.betweenLeftValue $field.conditionProperties.betweenRightValue )
+#foreach ($i in [0..$indent])    #end   </when>
+#foreach ($i in [0..$indent])    #end   <otherwise>
+#foreach ($i in [0..$indent])    #end       ${andPart}${leftPart} IS NULL
+#foreach ($i in [0..$indent])    #end   </otherwise>
+#foreach ($i in [0..$indent])    #end</choose>
+#else## A-3-1
+#foreach ($i in [0..$indent])    #end<if test="#if($nestedProps.size() > 1 )$nestedProps[0] != null and #{end}$field.conditionProperties.betweenLeftProp != null and $field.conditionProperties.betweenRightProp != null">
+#foreach ($i in [0..$indent])    #end    ${andPart}#betweenConditionExpression( $field $leftPart $field.conditionProperties.betweenLeftProp $field.conditionProperties.betweenRightProp $field.conditionProperties.betweenLeftValue $field.conditionProperties.betweenRightValue )
+#foreach ($i in [0..$indent])    #end</if>
+#end## A-3-1
+#else## A-3
+#if($field.conditionProperties.propAlias != $null)## A-3-1
+#set( $propAlias = ${field.conditionProperties.propAlias} )
+#else## A-3-1
+#set( $propAlias = ${field.property} )
+#end## A-3-1
+#set( $nestedProps = ${propAlias.split("\.")} )
+#if( $field.conditionProperties.required || $field.conditionProperties.valueType == 'constant' )## A-3-2
+#foreach ($i in [0..$indent])    #end${andPart}#sqlPlainConditionExpression( $field $leftPart $propAlias $field.conditionProperties.value )
+#elseif($field.conditionProperties.nullHandle == 'isNull')## A-3-2
+#foreach ($i in [0..$indent])    #end<choose>
+#foreach ($i in [0..$indent])    #end   <when test="#if($nestedProps.size() > 1 )$nestedProps[0] != null and #{end}$propAlias != null">
+#foreach ($i in [0..$indent])    #end       ${andPart}#sqlPlainConditionExpression( $field $leftPart $propAlias $field.conditionProperties.value )
+#foreach ($i in [0..$indent])    #end   </when>
+#foreach ($i in [0..$indent])    #end   <otherwise>
+#foreach ($i in [0..$indent])    #end       ${andPart}${leftPart} IS NULL
+#foreach ($i in [0..$indent])    #end   </otherwise>
+#foreach ($i in [0..$indent])    #end</choose>
+#else## A-3-2
+#foreach ($i in [0..$indent])    #end<if test="#if($nestedProps.size() > 1 )$nestedProps[0] != null and #{end}$propAlias != null">
+#foreach ($i in [0..$indent])    #end    ${andPart}#sqlPlainConditionExpression( $field $leftPart $propAlias $field.conditionProperties.value )
+#foreach ($i in [0..$indent])    #end</if>
+#end## A-3-2
+#end## A-3
+#end## A
+
+
+#macro( interfaceProjectionFields $nestedFields $deep = 0 )## A
+#set( $nextDeep = $deep + 1 )
+#foreach ($field in $nestedFields)## A-1
+#if($deep == 0)## A-1-1
+#foreach ($i in [0..0])    #end#getJavaTypeSimpleName($field.javaType) #getFieldGetterName($field)();
+
+#else## A-1-1
+#foreach ($i in [0..1])    #end#getJavaTypeSimpleName($field.javaType) #getFieldGetterName($field)();
+
+#end## A-1-1
+#if($field.nestInfo != $null)## A-1-2
+#if($field.nestInfo.type == 'collection')## A-1-2-1
+    interface  #getJavaTypeSimpleName( $field.nestInfo.ofJavaType false ) {
+#else## A-1-2-1
+    interface  #getJavaTypeSimpleName( $field.nestInfo.javaType false ) {
+#end## A-1-2-1
+
+    #interfaceProjectionFields( $field.nestedFields $nextDeep )
+    }
+
+#end## A-1-2
+#end## A-1
+#end## A
+
+
+#macro( buildRepositoryFind $nestedFields $conditionFields $usageType = 0 $rootParam = $null )## A
+#set($strings = ["find"])
+#set($nestedProperties = [])
+#foreach ($field in $nestedFields)## A-1
+#if($field.nestInfo != $null)## A-1-2
+#if($nestedProperties.add($field.property))#end
+#end## A-1-2
+#end## A-1
+#if( $nestedProperties.size() > 0 )## A-2
+#if($strings.add("With"))#end
+#foreach ($property in $nestedProperties)## A-2-1
+#if( !$foreach.first )## A-2-1-1
+#if($strings.add("And"))#end
+#end## A-2-1-1
+#if($strings.add($myTool.toUpperCamelCase($property)))#end
+#end## A-2-1
+#end## A-2
+#if($conditionFields.size() > 0)## A-3
+#if($strings.add("By"))#end
+#end## A-3
+#foreach ($field in $conditionFields)## A-4
+#if( !$foreach.first )## A-4-1
+#if($strings.add("And"))#end
+#end## A-4-1
+#set($modelNestedPaths = $myTool.getModelNestedPathById($field.tableId))
+#if($modelNestedPaths != $null)## A-4-2
+#foreach ($modelNestedPath in $modelNestedPaths)## A-4-2-1
+#if($strings.add($myTool.toUpperCamelCase($modelNestedPath)))#end
+#if($strings.add("_"))#end
+#end## A-4-2-1
+#end## A-4-2
+#if($strings.add($myTool.toUpperCamelCase($field.property)))#end
+#if ( ${field.conditionProperties.operator} == "isNull" )## A-4-3
+#if($strings.add("IsNull"))#end
+#elseif ( ${field.conditionProperties.operator} == "isNotNull" )## A-4-3
+#if($strings.add("IsNotNull"))#end
+#elseif ( ${field.conditionProperties.operator} == "between" )## A-4-3
+#if($strings.add("Between"))#end
+#elseif ( ${field.conditionProperties.operator} == "gt" )## A-4-3
+#if($strings.add("GreaterThan"))#end
+#elseif ( ${field.conditionProperties.operator} == "ge" )## A-4-3
+#if($strings.add("GreaterThanEqual"))#end
+#elseif ( ${field.conditionProperties.operator} == "lt" )## A-4-3
+#if($strings.add("LessThan"))#end
+#elseif ( ${field.conditionProperties.operator} == "le" )## A-4-3
+#if($strings.add("LessThanEqual"))#end
+#elseif ( ${field.conditionProperties.operator} == "like" )## A-4-3
+#if($strings.add("Contains"))#end
+#elseif ( ${field.conditionProperties.operator} == "likeLeft" )## A-4-3
+#if($strings.add("EndsWith"))#end
+#elseif ( ${field.conditionProperties.operator} == "likeRight" )## A-4-3
+#if($strings.add("StartsWith"))#end
+#end## A-4-3
+#end## A-4
+#if($strings.add("("))#end
+#foreach ($field in $conditionFields)## A-5
+#if ( ${field.conditionProperties.operator} != "isNull" && ${field.conditionProperties.operator} != "isNotNull")## A-5-1
+#if ( ${field.conditionProperties.operator} == "between" )## A-5-1-1
+#if( !$foreach.first )## A-5-1-1-1
+#if($strings.add(", "))#end
+#end## A-5-1-1-1
+#if($usageType == 0)## A-5-1-1-2
+#if($strings.add($myTool.getJavaTypeSimpleName($field.javaType, true)))#end
+#if($strings.add(" "))#end
+#if($strings.add($field.conditionProperties.betweenLeftProp.replaceAll("\.", "_")))#end
+#if($strings.add(", "))#end
+#if($strings.add($myTool.getJavaTypeSimpleName($field.javaType, true)))#end
+#if($strings.add(" "))#end
+#if($strings.add($field.conditionProperties.betweenRightProp.replaceAll("\.", "_")))#end
+#elseif($usageType == 1)## A-5-1-1-2
+#if($field.conditionProperties.valueType == 'constant')## A-5-1-1-2-2
+#if($field.javaType == 'java.lang.String')## A-5-1-1-2-2-1
+#if($strings.add('"'))#end
+#elseif($field.javaType == 'java.lang.Character')## A-5-1-1-2-2-1
+#if($strings.add("'"))#end
+#end## A-5-1-1-2-2-1
+#if($strings.add($field.conditionProperties.betweenLeftValue))#end
+#if($field.javaType == 'java.lang.String')## A-5-1-1-2-2-1
+#if($strings.add('"'))#end
+#elseif($field.javaType == 'java.lang.Character')## A-5-1-1-2-2-1
+#if($strings.add("'"))#end
+#end## A-5-1-1-2-2-1
+#if($strings.add(", "))#end
+#if($field.javaType == 'java.lang.String')## A-5-1-1-2-2-1
+#if($strings.add('"'))#end
+#elseif($field.javaType == 'java.lang.Character')## A-5-1-1-2-2-1
+#if($strings.add("'"))#end
+#end## A-5-1-1-2-2-1
+#if($strings.add($field.conditionProperties.betweenRightValue))#end
+#if($field.javaType == 'java.lang.String')## A-5-1-1-2-2-1
+#if($strings.add('"'))#end
+#elseif($field.javaType == 'java.lang.Character')## A-5-1-1-2-2-1
+#if($strings.add("'"))#end
+#end## A-5-1-1-2-2-1
+#else## A-5-1-1-2-2
+#set( $paramBases = [] )
+#if($rootParam != $null)## A-5-1-1-2-2-1
+#if($paramBases.add($rootParam))#end
+#end## A-5-1-1-2-2-1
+#set( $propAliasParts = $field.conditionProperties.betweenLeftProp.split("\.") )
+#foreach ($part in $propAliasParts)## A-5-1-1-2-2-2
+#if($paramBases.add($part))#end
+#end## A-5-1-1-2-2-2
+#if($paramBases.size() > 1)## A-5-1-1-2-2-3
+#foreach ($path in $paramBases)## A-5-1-1-2-2-3-1
+#if( $foreach.first )## A-5-1-1-2-2-3-1-1
+#if($strings.add($path))#end
+#if($strings.add("."))#end
+#elseif($foreach.last)## A-5-1-1-2-2-3-1-1
+#if($strings.add($myTool.getPropertyGetterName($path, $field.javaType)))#end
+#if($strings.add("("))#end
+#if($strings.add(")"))#end
+#else## A-5-1-1-2-2-3-1-1
+#if($strings.add("get"))#end
+#if($strings.add($myTool.toUpperCamelCase($path)))#end
+#if($strings.add("("))#end
+#if($strings.add(")"))#end
+#if($strings.add("."))#end
+#end## A-5-1-1-2-2-3-1-1
+#end## A-5-1-1-2-2-3-1
+#else## A-5-1-1-2-2-3
+#if($strings.add($field.conditionProperties.betweenLeftProp))#end
+#end## A-5-1-1-2-2-3
+#if($strings.add(", "))#end
+#set( $paramBases = [] )
+#if($rootParam != $null)## A-5-1-1-2-2-1
+#if($paramBases.add($rootParam))#end
+#end## A-5-1-1-2-2-1
+#set( $propAliasParts = $field.conditionProperties.betweenRightProp.split("\.") )
+#foreach ($part in $propAliasParts)## A-5-1-1-2-2-2
+#if($paramBases.add($part))#end
+#end## A-5-1-1-2-2-2
+#if($paramBases.size() > 1)## A-5-1-1-2-2-3
+#foreach ($path in $paramBases)## A-5-1-1-2-2-3-1
+#if( $foreach.first )## A-5-1-1-2-2-3-1-1
+#if($strings.add($path))#end
+#if($strings.add("."))#end
+#elseif($foreach.last)## A-5-1-1-2-2-3-1-1
+#if($strings.add($myTool.getPropertyGetterName($path, $field.javaType)))#end
+#if($strings.add("("))#end
+#if($strings.add(")"))#end
+#else## A-5-1-1-2-2-3-1-1
+#if($strings.add("get"))#end
+#if($strings.add($myTool.toUpperCamelCase($path)))#end
+#if($strings.add("("))#end
+#if($strings.add(")"))#end
+#if($strings.add("."))#end
+#end## A-5-1-1-2-2-3-1-1
+#end## A-5-1-1-2-2-3-1
+#else## A-5-1-1-2-2-3
+#if($strings.add($field.conditionProperties.betweenRightProp))#end
+#end## A-5-1-1-2-2-3
+#end## A-5-1-1-2-2
+#end## A-5-1-1-2
+#else## A-5-1-1
+#if( !$foreach.first )## A-5-1-1-1
+#if($strings.add(", "))#end
+#end## A-5-1-1-1
+#if($usageType == 0)## A-5-1-1-2
+#if($strings.add($myTool.getJavaTypeSimpleName($field.javaType, true)))#end
+#if($strings.add(" "))#end
+#if($strings.add($field.property))#end
+#elseif($usageType == 1)## A-5-1-1-2
+#if($field.conditionProperties.valueType == 'constant')## A-5-1-1-2-2
+#if($field.javaType == 'java.lang.String')## A-5-1-1-2-2-1
+#if($strings.add('"'))#end
+#elseif($field.javaType == 'java.lang.Character')## A-5-1-1-2-2-1
+#if($strings.add("'"))#end
+#end## A-5-1-1-2-2-1
+#if($strings.add($field.conditionProperties.value))#end
+#if($field.javaType == 'java.lang.String')## A-5-1-1-2-2-1
+#if($strings.add('"'))#end
+#elseif($field.javaType == 'java.lang.Character')## A-5-1-1-2-2-1
+#if($strings.add("'"))#end
+#end## A-5-1-1-2-2-1
+#else## A-5-1-1-2-2
+#set( $paramBases = [] )
+#if($rootParam != $null)## A-5-1-1-2-2-1
+#if($paramBases.add($rootParam))#end
+#end## A-5-1-1-2-2-1
+#if($field.conditionProperties.propAlias != $null)## A-5-1-1-2-2-2
+#set( $propAliasParts = $field.conditionProperties.propAlias.split("\.") )
+#foreach ($part in $propAliasParts)## A-5-1-1-2-2-2-1
+#if($paramBases.add($part))#end
+#end## A-5-1-1-2-2-2-1
+#else## A-5-1-1-2-2-2
+#if($paramBases.add($field.property))#end
+#end## A-5-1-1-2-2-2
+#if($paramBases.size() > 1)## A-5-1-1-2-2-3
+#foreach ($path in $paramBases)## A-5-1-1-2-2-3-1
+#if( $foreach.first )## A-5-1-1-2-2-3-1-1
+#if($strings.add($path))#end
+#if($strings.add("."))#end
+#elseif($foreach.last)## A-5-1-1-2-2-3-1-1
+#if($strings.add($myTool.getPropertyGetterName($path, $field.javaType)))#end
+#if($strings.add("("))#end
+#if($strings.add(")"))#end
+#else## A-5-1-1-2-2-3-1-1
+#if($strings.add("get"))#end
+#if($strings.add($myTool.toUpperCamelCase($path)))#end
+#if($strings.add("("))#end
+#if($strings.add(")"))#end
+#if($strings.add("."))#end
+#end## A-5-1-1-2-2-3-1-1
+#end## A-5-1-1-2-2-3-1
+#else## A-5-1-1-2-2-3
+#if($strings.add($field.property))#end
+#end## A-5-1-1-2-2-3
+#end## A-5-1-1-2-2
+#end## A-5-1-1-2
+#end## A-5-1-1
+#end## A-5-1
+#end## A-5
+#if($strings.add(")"))#end
+#foreach ($str in $strings)$str#end
+#end## A

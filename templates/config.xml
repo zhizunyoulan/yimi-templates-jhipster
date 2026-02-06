@@ -1,0 +1,134 @@
+<config>
+  <templates location="backend">
+    <template>
+      <id>SPRING_MODEL</id>
+      <sourcePath>backend/src/main/java/__base_package__/model/__modelName__.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/domain/__modelName__.java</targetPath>
+    </template>
+    <template>
+      <id>SPRING_ENTITY_ID_CLASS</id>
+      <sourcePath>backend/src/main/java/__base_package__/model/__modelName__IdClass.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/domain/__modelName__IdClass.java</targetPath>
+      <condition>multiPrimaryKey</condition>
+    </template>
+    <template>
+      <id>SPRING_READ_RESULT</id>
+      <sourcePath>backend/src/main/java/__base_package__/model/projection/__modelName__ClassProjection.java.vm
+      </sourcePath>
+      <targetPath>src/main/java/__base_package__/domain/__modelName__Dto.java</targetPath>
+      <condition>resultClassType == 'DTO'</condition>
+    </template>
+    <template>
+      <id>SPRING_READ_RESULT</id>
+      <sourcePath>backend/src/main/java/__base_package__/model/projection/__modelName__InterfaceProjection.java.vm
+      </sourcePath>
+      <targetPath>src/main/java/__base_package__/domain/__modelName__Projection.java</targetPath>
+      <condition>resultClassType == 'Interface'</condition>
+    </template>
+    <template>
+      <id>SPRING_READ_RESULT</id>
+      <sourcePath>backend/src/main/java/__base_package__/model/projection/__modelName__RecordProjection.java.vm
+      </sourcePath>
+      <targetPath>src/main/java/__base_package__/domain/__modelName__Record.java</targetPath>
+      <condition>resultClassType == 'Record'</condition>
+    </template>
+    <template>
+      <id>SPRING_READ_REQUEST</id>
+      <sourcePath>backend/src/main/java/__base_package__/model/__modelName__Query.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/domain/__modelName__Query.java</targetPath>
+    </template>
+    <template>
+      <id>SPRING_REPOSITORY</id>
+      <sourcePath>backend/src/main/java/__base_package__/dao/__modelName__Repository.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/__modelName__Repository.java</targetPath>
+    </template>
+    <template>
+      <id>SPRING_SERVICE_IMPL</id>
+      <sourcePath>backend/src/main/java/__base_package__/service/impl/__modelName__ServiceImpl.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/service/__modelName__Service.java</targetPath>
+    </template>
+    <template>
+      <id>SPRING_CONTROLLER</id>
+      <sourcePath>backend/src/main/java/__base_package__/controller/__modelName__Controller.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/web/rest/__modelName__Resource.java</targetPath>
+    </template>
+  </templates>
+
+
+  <custom-variables>
+    <variable type="Object">
+      <property>readDefinition</property>
+      <label>ReadDefinition</label>
+      <sub-variables>
+        <variable type="FieldList">
+          <property>selectFields</property>
+          <label>SelectFields</label>
+          <sortable>true</sortable>
+        </variable>
+        <variable type="FieldList">
+          <property>conditionFields</property>
+          <label>ConditionFields</label>
+          <sortable>true</sortable>
+        </variable>
+      </sub-variables>
+    </variable>
+    <variable type="Object">
+      <property>createDefinition</property>
+      <label>CreateDefinition</label>
+      <sub-variables>
+        <variable type="FieldList">
+          <property>formFields</property>
+          <label>FormFields</label>
+        </variable>
+      </sub-variables>
+    </variable>
+    <variable type="Object">
+      <property>updateDefinition</property>
+      <label>UpdateDefinition</label>
+      <sub-variables>
+        <variable type="FieldList">
+          <property>formFields</property>
+          <label>FormFields</label>
+        </variable>
+      </sub-variables>
+    </variable>
+    <variable type="Object">
+      <property>deleteDefinition</property>
+      <label>DeleteDefinition</label>
+      <sub-variables/>
+    </variable>
+    <variable type="Object">
+      <property>fieldDefinition</property>
+      <label>FieldDefinition</label>
+      <sub-variables>
+        <variable type="Object">
+          <property>selectProperties</property>
+          <label>SelectProperties</label>
+          <sub-variables/>
+          <display-locations>
+            <location>readDefinition.selectFields</location>
+          </display-locations>
+        </variable>
+        <variable type="Object">
+          <property>conditionProperties</property>
+          <label>ConditionProperties</label>
+          <sub-variables/>
+          <display-locations>
+            <location>readDefinition.conditionFields</location>
+          </display-locations>
+        </variable>
+        <variable type="Object">
+          <property>formProperties</property>
+          <label>FormProperties</label>
+          <sub-variables/>
+          <display-locations>
+            <location>createDefinition.formFields</location>
+            <location>updateDefinition.formFields</location>
+          </display-locations>
+        </variable>
+      </sub-variables>
+    </variable>
+  </custom-variables>
+
+  <basePackage>__groupId__</basePackage>
+</config>

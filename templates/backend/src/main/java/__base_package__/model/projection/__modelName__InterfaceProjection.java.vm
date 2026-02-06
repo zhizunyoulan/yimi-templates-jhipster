@@ -1,0 +1,11 @@
+package ${resultModelClass.packageName};
+
+#foreach ($importType in $resultModelClass.dynamicImports)## A
+import ${importType};
+#end## A
+
+public interface ${resultModelClass.simpleName} {
+
+#interfaceProjectionFields( $readDefinition.resultFieldsTree $readDefinition.select.conditionFields )
+
+}

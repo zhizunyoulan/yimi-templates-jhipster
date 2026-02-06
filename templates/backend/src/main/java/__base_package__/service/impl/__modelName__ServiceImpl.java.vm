@@ -1,0 +1,99 @@
+package ${currentClass.packageName};
+#set($emptyStr = "")
+
+import ${mainModelClass.qualifiedName};
+#if(${requestModelClass.simpleName} != ${mainModelClass.simpleName})## A
+#if($requestModelClass != $null)## A-1
+import ${requestModelClass.qualifiedName};
+#end## A-1
+#if(${resultModelClass.simpleName} != ${mainModelClass.simpleName} && ${resultModelClass.simpleName} != ${requestModelClass.simpleName})## A-2
+import ${resultModelClass.qualifiedName};
+#end## A-2
+#elseif(${resultModelClass.simpleName} != ${mainModelClass.simpleName})## A
+import ${resultModelClass.qualifiedName};
+#end## A
+import ${repositoryClass.qualifiedName};
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+#foreach ($importType in $currentClass.dynamicImports)## A
+import ${importType};
+#end## A
+import java.util.*;
+
+@Service
+@Transactional
+public class ${currentClass.simpleName} {
+
+    private static final Logger LOG = LoggerFactory.getLogger(${currentClass.simpleName}.class);
+
+    private final ${repositoryClass.simpleName} #toLowerCamelCase($repositoryClass.simpleName);
+
+    public ${currentClass.simpleName}(${repositoryClass.simpleName} #toLowerCamelCase($repositoryClass.simpleName)) {
+        this.#toLowerCamelCase($repositoryClass.simpleName) = #toLowerCamelCase($repositoryClass.simpleName);
+    }
+
+#if($readDefinition != $null)## A
+#if(!$readDefinition.singleResult)## A-1
+#if($requestModelClass != $null)## A-1-1
+    public List<${resultModelClass.simpleName}> ${readDefinition.functionName}(${requestModelClass.simpleName} #toLowerCamelCase(${requestModelClass.simpleName})) {
+        return #toLowerCamelCase($repositoryClass.simpleName).#buildRepositoryFind( $readDefinition.resultFieldsTree $readDefinition.select.conditionFields 1 $myTool.toLowerCamelCase(${requestModelClass.simpleName}));
+#else## A-1-1
+    public List<${resultModelClass.simpleName}> ${readDefinition.functionName}(#foreach($requestParamField in $readDefinition.requestParamFields)#getJavaTypeSimpleName(${requestParamField.javaType}) $requestParamField.property#{if}( !$foreach.last ), #end#end) {
+        return #toLowerCamelCase($repositoryClass.simpleName).#buildRepositoryFind( $readDefinition.resultFieldsTree $readDefinition.select.conditionFields 1 );
+#end## A-1-1
+    }
+
+#else## A-1
+#if($requestModelClass != $null)## A-1-1
+    public ${resultModelClass.simpleName} ${readDefinition.functionName}(${requestModelClass.simpleName} #toLowerCamelCase(${requestModelClass.simpleName})) {
+        return #toLowerCamelCase($repositoryClass.simpleName).#buildRepositoryFind( $readDefinition.resultFieldsTree $readDefinition.select.conditionFields 1 $myTool.toLowerCamelCase(${requestModelClass.simpleName}));
+#else## A-1-1
+    public ${resultModelClass.simpleName} ${readDefinition.functionName}(#foreach($requestParamField in $readDefinition.requestParamFields)#getJavaTypeSimpleName(${requestParamField.javaType}) $requestParamField.property#{if}( !$foreach.last ), #end#end) {
+        return #toLowerCamelCase($repositoryClass.simpleName).#buildRepositoryFind( $readDefinition.resultFieldsTree $readDefinition.select.conditionFields 1 );
+#end## A-1-1
+    }
+
+#end## A-1
+#end## A
+#if($createDefinition != $null)## A
+    public ${mainModelClass.simpleName} ${createDefinition.functionName}(${mainModelClass.simpleName} ${mainModel.camelCaseModelName}) {
+        $emptyStr#toLowerCamelCase($repositoryClass.simpleName).save(${mainModel.camelCaseModelName});
+        LOG.debug("Created Information for ${mainModelClass.simpleName}: {}", ${mainModel.camelCaseModelName});
+        return ${mainModel.camelCaseModelName};
+    }
+
+#end## A
+#if($updateDefinition != $null)## A
+    public Optional<${mainModelClass.simpleName}> ${updateDefinition.functionName}(${mainModelClass.simpleName} ${mainModel.camelCaseModelName}) {
+        return Optional.of(#toLowerCamelCase($repositoryClass.simpleName).findById(${mainModel.camelCaseModelName}.$myTool.getFieldGetterName($mainModel.primaryKeyField)()))
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .map(existed${mainModel.modelName} -> {
+#foreach($field in $updateDefinition.formFields)
+                existed${mainModel.modelName}.$myTool.getFieldSetterName($field)(${mainModel.camelCaseModelName}.$myTool.getFieldGetterName($field)());
+#end
+                $emptyStr#toLowerCamelCase($repositoryClass.simpleName).save(existed${mainModel.modelName});
+                LOG.debug("Changed Information for ${mainModel.modelName}: {}", existed${mainModel.modelName});
+                return existed${mainModel.modelName};
+            });
+    }
+
+#end## A
+#if($deleteDefinition != $null)## A
+    public void ${deleteDefinition.functionName}(#foreach($primaryKeyField in $mainModel.primaryKeyFields)#getJavaTypeSimpleName(${primaryKeyField.javaType}) $primaryKeyField.property#if( !$foreach.last ), #end#end) {
+        $emptyStr#toLowerCamelCase($repositoryClass.simpleName)
+            .findById($mainModel.primaryKeyField.property)
+            .ifPresent(existed${mainModel.modelName} -> {
+                $emptyStr#toLowerCamelCase($repositoryClass.simpleName).delete(existed${mainModel.modelName});
+                LOG.debug("Deleted ${mainModel.modelName}: {}", existed${mainModel.modelName});
+            });
+    }
+
+#end## A
+}
+
+
+
+

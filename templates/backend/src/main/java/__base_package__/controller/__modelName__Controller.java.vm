@@ -1,0 +1,179 @@
+package ${currentClass.packageName};
+#set($emptyStr = "")
+
+import ${mainModelClass.qualifiedName};
+#if(${requestModelClass.simpleName} != ${mainModelClass.simpleName})## A
+#if($requestModelClass != $null)## A-1
+import ${requestModelClass.qualifiedName};
+#end## A-1
+#if(${resultModelClass.simpleName} != ${mainModelClass.simpleName} && ${resultModelClass.simpleName} != ${requestModelClass.simpleName})## A-2
+import ${resultModelClass.qualifiedName};
+#end## A-2
+#elseif(${resultModelClass.simpleName} != ${mainModelClass.simpleName})## A
+import ${resultModelClass.qualifiedName};
+#end## A
+import ${serviceImplClass.qualifiedName};
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+#foreach ($importType in $currentClass.dynamicImports)## A
+import ${importType};
+#end## A
+import tech.jhipster.web.util.HeaderUtil;
+import tech.jhipster.web.util.ResponseUtil;
+
+/**
+ * REST controller for managing {@link ${mainModelClass.qualifiedName}}.
+ */
+@RestController
+@RequestMapping("/api/${mainModel.kebabCaseModelName}")
+@Transactional
+public class ${currentClass.simpleName} {
+
+    private static final Logger LOG = LoggerFactory.getLogger(${currentClass.simpleName}.class);
+
+    private static final String ENTITY_NAME = "${mainModel.camelCaseModelName}";
+
+    private final ${serviceImplClass.simpleName} #toLowerCamelCase($serviceImplClass.simpleName);
+
+    private final ${repositoryClass.simpleName} #toLowerCamelCase($repositoryClass.simpleName);
+
+    public ${currentClass.simpleName}(${serviceImplClass.simpleName} #toLowerCamelCase($serviceImplClass.simpleName), ${repositoryClass.simpleName} #toLowerCamelCase($repositoryClass.simpleName)) {
+        this.#toLowerCamelCase($serviceImplClass.simpleName) = #toLowerCamelCase($serviceImplClass.simpleName);
+        this.#toLowerCamelCase($repositoryClass.simpleName) = #toLowerCamelCase($repositoryClass.simpleName);
+    }
+
+#if($readDefinition != $null)## A
+#if(!$readDefinition.singleResult)## A-1
+    /**
+     * {@code GET  /${mainModel.camelCaseModelName}s} : get the ${mainModel.camelCaseModelName}s.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of ${mainModel.camelCaseModelName}s in body.
+     */
+    @GetMapping
+#if($requestModelClass != $null)## A-1-1
+    public List<${resultModelClass.simpleName}> ${readDefinition.functionName}(${requestModelClass.simpleName} #toLowerCamelCase(${requestModelClass.simpleName})) {
+        LOG.debug("REST request to get ${mainModel.camelCaseModelName}s");
+        return #toLowerCamelCase($serviceImplClass.simpleName).${readDefinition.functionName}(#toLowerCamelCase(${requestModelClass.simpleName}));
+#else## A-1-1
+    public List<${resultModelClass.simpleName}> ${readDefinition.functionName}(#foreach($requestParamField in $readDefinition.requestParamFields)#if(${requestParamField.jdbcType} == 'DATE' || ${requestParamField.jdbcType} == 'TIMESTAMP' || ${requestParamField.jdbcType} == 'TIME')#if($requestParamField.format == "DATE")@DateTimeFormat(iso = DateTimeFormat.ISO.DATE)#elseif($requestParamField.format == "TIME")@DateTimeFormat(iso = DateTimeFormat.ISO.TIME)#else@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)#end #end#getJavaTypeSimpleName(${requestParamField.javaType}) $requestParamField.property#{if}( !$foreach.last ), #end#end) {
+        LOG.debug("REST request to get ${mainModel.camelCaseModelName}s");
+        return #toLowerCamelCase($serviceImplClass.simpleName).${readDefinition.functionName}(#foreach($requestParamField in $readDefinition.requestParamFields)$requestParamField.property#{if}( !$foreach.last ), #end#end);
+#end## A-1-1
+    }
+
+#else## A-1
+    /**
+     * {@code GET  /${mainModel.camelCaseModelName}s/:id} : get the "id" ${mainModel.camelCaseModelName}.
+     *
+     * @param id the id of the ${mainModel.camelCaseModelName} to retrieve.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the ${mainModel.camelCaseModelName}, or with status {@code 404 (Not Found)}.
+     */
+#if($requestModelClass != $null)## A-1-1
+    @GetMapping("/one")
+    public ${resultModelClass.simpleName} ${readDefinition.functionName}(${requestModelClass.simpleName} #toLowerCamelCase(${requestModelClass.simpleName})) {
+        LOG.debug("REST request to get ${mainModel.modelName} : {}", #toLowerCamelCase(${requestModelClass.simpleName}));
+        Optional<${resultModelClass.simpleName}> ${mainModel.camelCaseModelName} = #toLowerCamelCase($serviceImplClass.simpleName).${readDefinition.functionName}(#toLowerCamelCase(${requestModelClass.simpleName}));
+#else## A-1-1
+#set($pathParamFields = [])
+#foreach($requestParamField in $readDefinition.requestParamFields)## A-1-1-1
+#if($requestParamField.unique && $requestParamField.conditionProperties.required)## A-1-1-1-1
+#if($pathParamFields.add(${requestParamField}))#end
+#end## A-1-1-1-1
+#end## A-1-1-1
+    @GetMapping("#foreach($pathParamField in $pathParamFields){${pathParamField.property}}#if( !$foreach.last )/#end#end")
+    public ${resultModelClass.simpleName} ${readDefinition.functionName}(#foreach($requestParamField in $readDefinition.requestParamFields)#if(${requestParamField.jdbcType} == 'DATE' || ${requestParamField.jdbcType} == 'TIMESTAMP' || ${requestParamField.jdbcType} == 'TIME')#if($requestParamField.format == "DATE")@DateTimeFormat(iso = DateTimeFormat.ISO.DATE)#elseif($requestParamField.format == "TIME")@DateTimeFormat(iso = DateTimeFormat.ISO.TIME)#else@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)#end #end#if($requestParamField.unique && $requestParamField.conditionProperties.required)@PathVariable("${requestParamField.property}") #end#getJavaTypeSimpleName(${requestParamField.javaType}) $requestParamField.property#{if}( !$foreach.last ), #end#end) {
+        LOG.debug("REST request to get ${mainModel.modelName} : #foreach($requestParamField in $readDefinition.requestParamFields){} #end", #foreach($requestParamField in $readDefinition.requestParamFields)$requestParamField.property#{if}( !$foreach.last ), #end#end);
+        Optional<${resultModelClass.simpleName}> ${mainModel.camelCaseModelName} = #toLowerCamelCase($serviceImplClass.simpleName).${readDefinition.functionName}(#foreach($requestParamField in $readDefinition.requestParamFields)$requestParamField.property#{if}( !$foreach.last ), #end#end);
+#end## A-1-1
+        return ResponseUtil.wrapOrNotFound(${mainModel.camelCaseModelName});
+    }
+
+#end## A-1
+#end## A
+#if($createDefinition != $null)## A
+    /**
+     * {@code POST  /${mainModel.camelCaseModelName}s} : Create a new ${mainModel.camelCaseModelName}.
+     *
+     * @param ${mainModel.camelCaseModelName} the ${mainModel.camelCaseModelName} to create.
+     * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new ${mainModel.camelCaseModelName}, or with status {@code 400 (Bad Request)} if the ${mainModel.camelCaseModelName} has already an ID.
+     */
+    @PostMapping
+    public ResponseEntity<${mainModel.modelName}> ${createDefinition.functionName}(@Valid @RequestBody ${mainModelClass.simpleName} ${mainModel.camelCaseModelName}) throws URISyntaxException {
+        LOG.debug("REST request to save ${mainModel.camelCaseModelName} : {}", ${mainModel.camelCaseModelName});
+#foreach($field in $mainModel.fields)## A-1
+#if($field.primaryKey == true)## A-1-1
+        if (${mainModel.camelCaseModelName}.$myTool.getFieldGetterName($field)() != null) {
+            throw new BadRequestAlertException("A new ${mainModel.camelCaseModelName} cannot already have an $field.property", ENTITY_NAME, "idexists");
+        }
+#end## A-1-1
+#end## A-1
+        ${mainModel.camelCaseModelName} = #toLowerCamelCase($serviceImplClass.simpleName).${createDefinition.functionName}(${mainModel.camelCaseModelName});
+        return ResponseEntity.created(new URI("/api/${mainModel.kebabCaseModelName}" + ${mainModel.camelCaseModelName}.$myTool.getFieldGetterName($mainModel.primaryKeyField)()))
+                    .headers(HeaderUtil.createAlert(applicationName, "${mainModel.camelCaseModelName}.created", ${mainModel.camelCaseModelName}.$myTool.getFieldGetterName($mainModel.primaryKeyField)().toString()))
+                    .body(${mainModel.camelCaseModelName});
+    }
+
+#end## A
+#if($updateDefinition != $null)## A
+    /**
+     * {@code PUT /api/${mainModel.kebabCaseModelName}} : Updates an existing ${mainModel.modelName}.
+     *
+     * @param ${mainModel.camelCaseModelName} the ${mainModel.camelCaseModelName} to update.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated label
+     */
+    @PutMapping
+    public ResponseEntity<${mainModel.modelName}> ${updateDefinition.functionName}(@Valid @RequestBody ${mainModelClass.simpleName} ${mainModel.camelCaseModelName}) throws URISyntaxException {
+        LOG.debug("REST request to update ${mainModel.camelCaseModelName} : {}", ${mainModel.camelCaseModelName});
+#foreach($field in $mainModel.fields)## A-1
+#if($field.primaryKey == true)## A-1-1
+        if (${mainModel.camelCaseModelName}.$myTool.getFieldGetterName($field)() == null) {
+            throw new BadRequestAlertException("Invalid $field.property", ENTITY_NAME, "idnull");
+        }
+#end## A-1-1
+#end## A-1
+#if($mainModel.primaryKeyFields.size() == 1)## A-2
+        if (!#toLowerCamelCase($repositoryClass.simpleName).existsById($mainModel.primaryKeyField.property)) {
+            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
+        }
+#end## A-2
+        Optional<${mainModel.modelName}> updated${mainModel.camelCaseModelName} = #toLowerCamelCase($serviceImplClass.simpleName).${updateDefinition.functionName}(${mainModel.camelCaseModelName});
+        return ResponseUtil.wrapOrNotFound(
+                    updated${mainModel.camelCaseModelName},
+                    HeaderUtil.createAlert(applicationName, "${mainModel.camelCaseModelName}.updated", ${mainModel.camelCaseModelName}.$myTool.getFieldGetterName($mainModel.primaryKeyField)().toString())
+                );
+    }
+
+#end## A
+#if($deleteDefinition != $null)## A
+    /**
+     * {@code DELETE  /${mainModel.camelCaseModelName}s/#foreach($primaryKeyField in $mainModel.primaryKeyFields):${primaryKeyField.property}#end} : delete the #foreach($primaryKeyField in $mainModel.primaryKeyFields)"${primaryKeyField.property}" #end label.
+     *
+#foreach($primaryKeyField in $mainModel.primaryKeyFields)## A-1
+     * @param $primaryKeyField.property the $primaryKeyField.property of the ${mainModel.camelCaseModelName} to delete.
+#end## A-1
+     * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
+     */
+    @DeleteMapping("#foreach($primaryKeyField in $mainModel.primaryKeyFields){${primaryKeyField.property}}#if( !$foreach.last )/#end#end")
+    public ResponseEntity<Void> ${deleteDefinition.functionName}(#foreach($primaryKeyField in $mainModel.primaryKeyFields)@PathVariable("${primaryKeyField.property}") #getJavaTypeSimpleName(${primaryKeyField.javaType}) $primaryKeyField.property#if( !$foreach.last ), #end#end) {
+        LOG.debug("REST request to delete ${mainModel.camelCaseModelName} : #foreach($primaryKeyField in $mainModel.primaryKeyFields){} #end", #foreach($primaryKeyField in $mainModel.primaryKeyFields)$primaryKeyField.property#{if}( !$foreach.last ), #end#end);
+
+        $emptyStr#toLowerCamelCase($serviceImplClass.simpleName).${deleteDefinition.functionName}(#foreach($primaryKeyField in $mainModel.primaryKeyFields)$primaryKeyField.property#if( !$foreach.last ), #end#end);
+        return ResponseEntity.noContent()
+                    .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, $mainModel.primaryKeyField.property.toString()))
+                    .build();
+    }
+
+#end## A
+}

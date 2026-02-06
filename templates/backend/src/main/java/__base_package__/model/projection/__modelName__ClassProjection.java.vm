@@ -1,0 +1,52 @@
+package ${resultModelClass.packageName};
+
+import org.springframework.format.annotation.DateTimeFormat;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import javax.validation.constraints.NotNull;
+import org.springframework.data.annotation.PersistenceCreator;
+#if($resultModelClass.superClass != $null)## A
+import ${resultModelClass.superClass.qualifiedName};
+#end## A
+#foreach ($importType in $resultModelClass.dynamicImports)## A
+import ${importType};
+#end## A
+
+public class ${resultModelClass.simpleName} #if($resultModelClass.superClass != $null)extends ${resultModelClass.superClass.simpleName} #end{
+
+#foreach ($field in $resultModelClass.fields)## A
+#if($field.javaType == 'long' || $field.javaType == 'java.lang.Long')## A-1
+    @JsonSerialize(using = ToStringSerializer.class)
+#end## A-1
+#if(${field.jdbcType} == 'DATE' || ${field.jdbcType} == 'TIMESTAMP' || ${field.jdbcType} == 'TIME')## A-2
+#if($field.format == "DATE")## A-2-1
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+#elseif($field.format == "TIME")## A-2-1
+    @DateTimeFormat(iso = DateTimeFormat.ISO.TIME)
+#else## A-2-1
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+#end## A-2-1
+#end## A-2
+    private #getJavaTypeSimpleName($field.javaType) $field.property;
+
+#end## A
+
+    @PersistenceCreator
+    public ${resultModelClass.simpleName}(#foreach ($field in $resultModelClass.fields)#getJavaTypeSimpleName($field.javaType) $field.property#if( !$foreach.last ),#end#end) {
+#foreach ($field in $resultModelClass.fields)## A
+        this.$field.property = $field.property;
+#end## A
+    }
+
+
+#foreach ($field in ${resultModelClass.fields})## A
+    public #getJavaTypeSimpleName($field.javaType) #getFieldGetterName($field)() {
+        return this.$field.property;
+    }
+
+    public void #getFieldSetterName($field)(#getJavaTypeSimpleName($field.javaType) $field.property) {
+        this.$field.property = $field.property;
+    }
+
+#end## A
+}
