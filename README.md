@@ -1,17 +1,17 @@
-# JHipster Templates for Yimi Rrud Generator
+# JHipster Templates for Yimi Crud Generator
 
 ## Overview
 
-This is a set of JHipster companion template files designed specifically for the **Yimi Rrud Generator** code generation plugin.
+This is a set of JHipster companion template files designed specifically for the **Yimi Crud Generator** code generation plugin.
 
 ## Core Purpose
 
-These templates allow you to generate code in **Yimi Rrud Generator** that complies with JHipster project specifications, conventions, and best practices, including standard REST controllers, Service layer, Repository layer, and related configurations.
+These templates allow you to generate code in **Yimi Crud Generator** that complies with JHipster project specifications, conventions, and best practices, including standard REST controllers, Service layer, Repository layer, and related configurations.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Installed **Yimi Rrud Generator** IntelliJ IDEA plugin
+- Installed **Yimi Crud Generator** IntelliJ IDEA plugin
 - An existing Spring Boot project created with JHipster
 
 ### Key Configuration
@@ -20,7 +20,7 @@ These templates allow you to generate code in **Yimi Rrud Generator** that compl
 ### Usage
 1. Clone or download this repository to your local machine
 2. Copy the `templates` folder from this repository to the **root directory** of your project
-3. Configure **Yimi Rrud Generator** plugin to use these templates
+3. Configure **Yimi Crud Generator** plugin to use these templates
 4. Select your JPA Entity class to start generating JHipster-compliant code
 
 ## 📁 Template Contents
@@ -95,7 +95,7 @@ Here is an example `config.xml` snippet for JHipster:
 
 ## 📖 More Information
 
-For complete features, detailed tutorials, environment variable documentation, and latest updates about the **Yimi Rrud Generator** plugin, please visit the main project repository:
+For complete features, detailed tutorials, environment variable documentation, and latest updates about the **Yimi Crud Generator** plugin, please visit the main project repository:
 
 **[https://github.com/zhizunyoulan/CRUD-Generator](https://github.com/zhizunyoulan/CRUD-Generator)**
 
