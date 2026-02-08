@@ -12,6 +12,7 @@ import ${resultModelClass.qualifiedName};
 #elseif(${resultModelClass.simpleName} != ${mainModelClass.simpleName})## A
 import ${resultModelClass.qualifiedName};
 #end## A
+import ${repositoryClass.qualifiedName};
 import ${serviceImplClass.qualifiedName};
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -32,6 +33,8 @@ import ${importType};
 #end## A
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.ResponseUtil;
+import com.jhipster.demo.blog.web.rest.errors.BadRequestAlertException;
+
 
 /**
  * REST controller for managing {@link ${mainModelClass.qualifiedName}}.
@@ -42,6 +45,9 @@ import tech.jhipster.web.util.ResponseUtil;
 public class ${currentClass.simpleName} {
 
     private static final Logger LOG = LoggerFactory.getLogger(${currentClass.simpleName}.class);
+
+    @Value("${jhipster.clientApp.name}")
+    private String applicationName;
 
     private static final String ENTITY_NAME = "${mainModel.camelCaseModelName}";
 
@@ -144,7 +150,7 @@ public class ${currentClass.simpleName} {
 #end## A-1-1
 #end## A-1
 #if($mainModel.primaryKeyFields.size() == 1)## A-2
-        if (!#toLowerCamelCase($repositoryClass.simpleName).existsById($mainModel.primaryKeyField.property)) {
+        if (!#toLowerCamelCase($repositoryClass.simpleName).existsById(${mainModel.camelCaseModelName}.$myTool.getFieldGetterName($mainModel.primaryKeyField)())) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
 #end## A-2
@@ -171,7 +177,7 @@ public class ${currentClass.simpleName} {
 
         $emptyStr#toLowerCamelCase($serviceImplClass.simpleName).${deleteDefinition.functionName}(#foreach($primaryKeyField in $mainModel.primaryKeyFields)$primaryKeyField.property#if( !$foreach.last ), #end#end);
         return ResponseEntity.noContent()
-                    .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, $mainModel.primaryKeyField.property.toString()))
+                    .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, ${mainModel.primaryKeyField.property}.toString()))
                     .build();
     }
 

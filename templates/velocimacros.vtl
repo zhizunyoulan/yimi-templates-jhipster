@@ -203,6 +203,9 @@ ${leftPart} between $startValPart and $endValPart#end## A
 
 #macro( buildRepositoryFind $nestedFields $conditionFields $usageType = 0 $rootParam = $null )## A
 #set($strings = ["find"])
+#if($conditionFields.empty)## A-0
+#if($strings.add("All"))#end
+#end## A-0
 #set($nestedProperties = [])
 #foreach ($field in $nestedFields)## A-1
 #if($field.nestInfo != $null)## A-1-2
