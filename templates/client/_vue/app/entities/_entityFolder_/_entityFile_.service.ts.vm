@@ -1,0 +1,79 @@
+#set( $D = '$' )
+import axios from 'axios';
+#if (!$readDefinition.paginationNo)## A
+import buildPaginationQueryOpts from '@/shared/sort/sorts';
+#end## A
+import { type I${mainModel.modelName} } from '@/shared/model/${mainModel.kebabCaseModelName}.model';
+
+## Temporarily invalid
+#set($microserviceName = "")
+const baseApiUrl = '${microserviceName}api/$myTool.pluralize(${mainModel.kebabCaseModelName})';
+#set($searchEngineAny = false)
+#foreach($field in $readDefinition.select.conditionFields)## A
+#if($field.conditionProperties.valueType == 'variable')## A-1
+#set($searchEngineAny = true)
+#end## A-1
+#end## A
+#if ($searchEngineAny)## A
+const baseSearchApiUrl = '${microserviceName}api/$myTool.pluralize(${mainModel.kebabCaseModelName})/_search?query=';
+#end## A
+
+export default class ${mainModel.modelName}Service {
+#if($searchEngineAny)## A
+  search(query#if(!$readDefinition.paginationNo), paginationQuery#end): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios.get(`$D{baseSearchApiUrl}$D{query}#if(!$readDefinition.paginationNo)&$D{buildPaginationQueryOpts(paginationQuery)}#end`).then(res => {
+        resolve(#if(!$readDefinition.paginationNo)res#{else}res.data#end);
+      }).catch(err => { reject(err); });
+    });
+  }
+#end## A
+
+  find($mainModel.primaryKeyField.property: $myTool.getTsTypeForJavaType($mainModel.primaryKeyField.javaType)): Promise<I${mainModel.modelName}> {
+    return new Promise<I${mainModel.modelName}>((resolve, reject) => {
+      axios.get(`$D{baseApiUrl}/$D{${mainModel.primaryKeyField.property}}`).then(res => {
+        resolve(res.data);
+      }).catch(err => { reject(err); });
+    });
+  }
+
+  retrieve(#if(!$readDefinition.paginationNo)paginationQuery?: any#end): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios.get(baseApiUrl#if(!$readDefinition.paginationNo) + `?$D{buildPaginationQueryOpts(paginationQuery)}` #end).then(res => {
+        resolve(res);
+      }).catch(err => { reject(err); });
+    });
+  }
+
+  delete($mainModel.primaryKeyField.property: $myTool.getTsTypeForJavaType($mainModel.primaryKeyField.javaType)): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios.delete(`$D{baseApiUrl}/$D{${mainModel.primaryKeyField.property}}`).then(res => {
+        resolve(res);
+      }).catch(err => { reject(err); });
+    });
+  }
+
+  create(entity: I${mainModel.modelName}): Promise<I${mainModel.modelName}> {
+    return new Promise<I${mainModel.modelName}>((resolve, reject) => {
+      axios.post(`$D{baseApiUrl}`, entity).then(res => {
+        resolve(res.data);
+      }).catch(err => { reject(err); });
+    });
+  }
+
+  update(entity: I${mainModel.modelName}): Promise<I${mainModel.modelName}> {
+    return new Promise<I${mainModel.modelName}>((resolve, reject) => {
+      axios.put(`$D{baseApiUrl}/$D{entity.$mainModel.primaryKeyField.property}`, entity).then(res => {
+        resolve(res.data);
+      }).catch(err => { reject(err); });
+    });
+  }
+
+  partialUpdate(entity: I${mainModel.modelName}): Promise<I${mainModel.modelName}> {
+    return new Promise<I${mainModel.modelName}>((resolve, reject) => {
+      axios.patch(`$D{baseApiUrl}/$D{entity.$mainModel.primaryKeyField.property}`, entity).then(res => {
+        resolve(res.data);
+      }).catch(err => { reject(err); });
+    });
+  }
+}

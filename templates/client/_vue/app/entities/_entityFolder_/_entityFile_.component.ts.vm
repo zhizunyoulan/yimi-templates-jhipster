@@ -1,0 +1,283 @@
+import { defineComponent, inject, onMounted, ref, type Ref, watch, watchEffect } from 'vue';
+#set($enableTranslation = true)
+#if($enableTranslation)
+import { useI18n } from 'vue-i18n';
+#end
+#if ($readDefinition.paginationInfiniteScroll)
+import { useIntersectionObserver } from '@vueuse/core';
+#end
+
+import { type I${mainModel.modelName} } from '@/shared/model/${mainModel.kebabCaseModelName}.model';
+#set($anyFieldIsBlobDerived = false)
+#set($anyFieldIsTimeDerived = false)
+#foreach($field in $mainModel.fields)## A
+#if($field.jdbcType == 'BLOB')## A-1
+#set($anyFieldIsBlobDerived = true)
+#elseif($field.jdbcType == 'TIMESTAMP' || $field.jdbcType == 'DATE' || $field.jdbcType == 'TIME')## A-1
+#set($anyFieldIsTimeDerived = true)
+#end## A-1
+#end## A
+#if ($anyFieldIsBlobDerived || $readDefinition.paginationInfiniteScroll)## A
+import useDataUtils from '@/shared/data/data-utils.service';
+#end## A
+#if($anyFieldIsTimeDerived)
+import { useDateFormat } from '@/shared/composables'
+#end
+import ${mainModel.modelName}Service from './${mainModel.kebabCaseModelName}.service';
+import { useAlertService } from '@/shared/alert/alert.service';
+
+export default defineComponent({
+  compatConfig: { MODE: 3 },
+  name: '${mainModel.modelName}',
+  setup() {
+#if ($enableTranslation)
+    const { t: t$} = useI18n();
+#end
+#if($anyFieldIsTimeDerived)
+    const dateFormat = useDateFormat();
+#end
+#if($anyFieldIsBlobDerived || $readDefinition.paginationInfiniteScroll)
+    const dataUtils = useDataUtils();
+#end
+    const ${mainModel.camelCaseModelName}Service = inject('${mainModel.camelCaseModelName}Service', () => new ${mainModel.modelName}Service());
+    const alertService = inject('alertService', () => useAlertService(), true);
+
+#set($searchEngineAny = false)
+#foreach($field in $readDefinition.select.conditionFields)## A
+#if($field.conditionProperties.valueType == 'variable')## A-1
+#set($searchEngineAny = true)
+#end## A-1
+#end## A
+#if($searchEngineAny)
+    const currentSearch = ref('');
+#end
+#if (!$readDefinition.paginationNo)
+    const itemsPerPage = ref(20);
+    const queryCount: Ref<number> = ref(null);
+    const page: Ref<number> = ref(1);
+    const propOrder = ref('id');
+    const reverse = ref(false);
+    const totalItems = ref(0);
+#end
+#if($readDefinition.paginationInfiniteScroll)
+    const links: Ref<any> = ref({});
+#end
+
+    const ${myTool.pluralize(${mainModel.camelCaseModelName})}: Ref<I${mainModel.modelName}[]> = ref([]);
+
+    const isFetching = ref(false);
+
+    const clear = () => {
+#if($searchEngineAny)
+      currentSearch.value = '';
+#end
+#if(!$readDefinition.paginationNo)
+      page.value = 1;
+#end
+#if($readDefinition.paginationInfiniteScroll)
+      links.value = {};
+      ${myTool.pluralize(${mainModel.camelCaseModelName})}.value = [];
+#end
+    };
+#if(!$readDefinition.paginationNo)
+
+    const sort = (): Array<any> => {
+      const result = [propOrder.value + ',' + (reverse.value ? 'desc' : 'asc')];
+      if (propOrder.value !== 'id') {
+        result.push('id');
+      }
+      return result;
+    };
+#end
+
+    const retrieve${mainModel.modelName}s = async () => {
+      isFetching.value = true;
+      try {
+#if(!$readDefinition.paginationNo)
+        const paginationQuery = {
+          page: page.value - 1,
+          size: itemsPerPage.value,
+          sort: sort(),
+        };
+#end
+#if($searchEngineAny)
+        const res = currentSearch.value ?
+          (await ${mainModel.camelCaseModelName}Service().search(currentSearch.value#{if}(!$readDefinition.paginationNo), paginationQuery#end)) :
+          (await ${mainModel.camelCaseModelName}Service().retrieve(#if(!$readDefinition.paginationNo)paginationQuery#end));
+#else
+        const res = await ${mainModel.camelCaseModelName}Service().retrieve(#if(!$readDefinition.paginationNo)paginationQuery#end);
+#end
+#if(!$readDefinition.paginationNo)
+        totalItems.value = Number(res.headers['x-total-count']);
+        queryCount.value = totalItems.value;
+#end
+#if($readDefinition.paginationInfiniteScroll)
+        links.value = dataUtils.parseLinks(res.headers?.['link']);
+        ${myTool.pluralize(${mainModel.camelCaseModelName})}.value.push(#[[...]]#(res.data ?? []));
+#else
+        ${myTool.pluralize(${mainModel.camelCaseModelName})}.value = res.data;
+#end
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      } finally {
+        isFetching.value = false;
+      }
+    };
+
+    const handleSyncList = () => {
+#if($readDefinition.paginationInfiniteScroll)
+      clear();
+#else
+      retrieve${mainModel.modelName}s();
+#end
+    };
+
+    onMounted(async () => {
+      await retrieve${mainModel.modelName}s();
+    });
+
+#if($searchEngineAny)
+    const search = (query) => {
+      if (!query) {
+        return clear();
+      }
+      currentSearch.value = query;
+      retrieve${mainModel.modelName}s();
+    };
+#end
+#if($deleteDefinition != $null)## A
+
+    const removeId: Ref<$myTool.getTsTypeForJavaType($mainModel.primaryKeyField.javaType)> = ref(null);
+    const removeEntity = ref<any>(null);
+    const prepareRemove = (instance: I${mainModel.modelName}) => {
+      removeId.value = instance.${mainModel.primaryKeyField.property};
+      removeEntity.value.show();
+    };
+    const closeDialog = () => {
+      removeEntity.value.hide();
+    };
+    const remove${mainModel.modelName} = async () => {
+      try {
+        await ${mainModel.camelCaseModelName}Service().delete(removeId.value);
+#if($enableTranslation)
+        const message = t$('${appName}.${mainModel.camelCaseModelName}.deleted', { param : removeId.value }).toString();
+#else
+        const message = 'A ${mainModel.modelName} is deleted with identifier ' + removeId.value;
+#end
+        alertService.showInfo(message, { variant: 'danger' });
+        removeId.value = null;
+#if($readDefinition.paginationInfiniteScroll)
+        clear();
+#else
+        retrieve${mainModel.modelName}s();
+#end
+        closeDialog();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+#end
+#if(!$readDefinition.paginationNo)## A
+
+    const changeOrder = (newOrder: string) => {
+      if (propOrder.value === newOrder) {
+        reverse.value = !reverse.value;
+      } else {
+        reverse.value = false;
+      }
+      propOrder.value = newOrder;
+    };
+#if($readDefinition.paginationInfiniteScroll)## A-1
+
+    // Whenever order changes, reset the pagination
+    watch([propOrder, reverse], () => {
+      clear();
+    });
+
+    // Whenever the data resets or page changes, switch to the new page.
+    watch([${myTool.pluralize(${mainModel.camelCaseModelName})}, page], async ([data, page], [_prevData, prevPage]) => {
+      if (data.length === 0 || page !== prevPage) {
+        await retrieve${mainModel.modelName}s();
+      }
+    });
+
+    const infiniteScrollEl = ref<HTMLElement>(null);
+    const intersectionObserver = useIntersectionObserver(
+      infiniteScrollEl,
+      intersection => {
+        if (intersection[0].isIntersecting && !isFetching.value) {
+          page.value++;
+        }
+      },
+      {
+        threshold: 0.5,
+        immediate: false,
+      }
+    );
+    watchEffect(() => {
+      if (links.value.next) {
+        intersectionObserver.resume();
+      } else if (intersectionObserver.isActive) {
+        intersectionObserver.pause();
+      }
+    });
+#else## A-1
+
+    // Whenever order changes, reset the pagination
+    watch([propOrder, reverse], async () => {
+      if (page.value === 1) {
+        // first page, retrieve new data
+        await retrieve${mainModel.modelName}s();
+      } else {
+        // reset the pagination
+        clear();
+      }
+    });
+
+    // Whenever page changes, switch to the new page.
+    watch(page, async () => {
+      await retrieve${mainModel.modelName}s();
+    });
+#end## A-1
+#end## A
+
+    return {
+      ${myTool.pluralize(${mainModel.camelCaseModelName})},
+      handleSyncList,
+      isFetching,
+      retrieve${mainModel.modelName}s,
+      clear,
+#if($anyFieldIsTimeDerived)
+      ...dateFormat,
+#end
+#if($searchEngineAny)
+      currentSearch,
+#end
+#if($deleteDefinition != $null)## A
+      removeId,
+      removeEntity,
+      prepareRemove,
+      closeDialog,
+      remove${mainModel.modelName},
+#end## A
+#if(!$readDefinition.paginationNo)
+      itemsPerPage,
+      queryCount,
+      page,
+      propOrder,
+      reverse,
+      totalItems,
+      changeOrder,
+#end
+#if ($readDefinition.paginationInfiniteScroll)
+      infiniteScrollEl,
+#end
+#if ($enableTranslation)
+      t$,
+#end
+#if($anyFieldIsBlobDerived || $readDefinition.paginationInfiniteScroll)
+      ...dataUtils,
+#end
+    };
+  },
+});

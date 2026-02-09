@@ -54,7 +54,61 @@
     </template>
   </templates>
 
+  <templates location="frontend">
+    <profile id="admin" label="Admin" device="desktop" baseDir="src\main\webapp">
+      <template>
+        <id>FRONTEND_SERVICE_TS</id>
+        <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_.service.ts.vm</sourcePath>
+        <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__.service.ts</targetPath>
+      </template>
+      <template>
+        <id>FRONTEND_MODEL_TS</id>
+        <sourcePath>client/_vue/app/shared/model/_entityModel_.model.ts.vm</sourcePath>
+        <targetPath>app/shared/model/__kebabCaseModelName__.model.ts</targetPath>
+      </template>
+      <template>
+        <id>FRONTEND_COMPONENT_TS</id>
+        <condition>enableRead</condition>
+        <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_.component.ts.vm</sourcePath>
+        <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__.component.ts</targetPath>
+      </template>
+      <!-- <template>
+        <id>FRONTEND_LIST_VIEW</id>
+        <condition>enableRead</condition>
+        <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_.vue.vm</sourcePath>
+        <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__.vue</targetPath>
+      </template>
+      <template>
+        <id>FRONTEND_UPDATE_COMPONENT_TS</id>
+        <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_-update.component.ts.vm</sourcePath>
+        <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__-update.component.ts</targetPath>
+      </template>
+      <template>
+        <id>FRONTEND_UPDATE_VIEW</id>
+        <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_-update.vue.vm</sourcePath>
+        <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__-update.vue</targetPath>
+      </template>
+      <template>
+        <id>FRONTEND_DETAILS_COMPONENT_TS</id>
+        <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_-details.component.ts.vm</sourcePath>
+        <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__-details.component.ts</targetPath>
+      </template>
+      <template>
+        <id>FRONTEND_DETAILS_VIEW</id>
+        <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_-details.vue.vm</sourcePath>
+        <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__-details.vue</targetPath>
+      </template>
+      <template>
+        <id>FRONTEND_ROUTER_ENTITIES</id>
+        <condition>enableRead</condition>
+        <sourcePath>client/_vue/app/router/entities.ts.vm</sourcePath>
+        <targetPath>app/router/entities.ts</targetPath>
+      </template> -->
+    </profile>
+  </templates>
 
+
+  <basePackage>__groupId__</basePackage>
   <custom-variables>
     <variable type="Object">
       <property>readDefinition</property>
@@ -69,6 +123,18 @@
           <property>conditionFields</property>
           <label>ConditionFields</label>
           <sortable>true</sortable>
+        </variable>
+        <variable type="Primitive">
+          <property>paginationNo</property>
+          <label>PaginationNo</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>true</defaultValue>
+        </variable>
+        <variable type="Primitive">
+          <property>paginationInfiniteScroll</property>
+          <label>EndlessLoad</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>false</defaultValue>
         </variable>
       </sub-variables>
     </variable>
@@ -129,6 +195,4 @@
       </sub-variables>
     </variable>
   </custom-variables>
-
-  <basePackage>__groupId__</basePackage>
 </config>
