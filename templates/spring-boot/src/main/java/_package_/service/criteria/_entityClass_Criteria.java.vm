@@ -1,0 +1,183 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${currentClass.packageName};
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.Optional;
+import java.util.Objects;
+import java.util.function.BiFunction;
+
+import org.springdoc.core.annotations.ParameterObject;
+import tech.jhipster.service.Criteria;
+#foreach ($importType in $currentClass.dynamicImports)## A
+import ${importType};
+#end## A
+#set($entityJavaCustomFilters = [])
+#foreach($field in $mainModelClass.fields)## A
+#set($fieldType = $myTool.getJavaTypeSimpleName($field.javaType, true))
+#set($filterType = "${fieldType}Filter")
+#set($customFilter = {"type": $filterType, "fieldType": $fieldType})
+#if($field.enumType)
+#set($customFilter["superType"] = "Filter<${fieldType}>")
+#set($void = $entityJavaCustomFilters.add($customFilter))
+#elseif($field.javaType == 'java.time.LocalTime')
+#set($customFilter["superType"] = "RangeFilter<${fieldType}>")
+#set($void = $entityJavaCustomFilters.add($customFilter))
+#end
+#end## A
+import tech.jhipster.service.filter.*;
+
+/**
+ * Criteria class for the {@link ${entityAbsoluteClass}} entity. This class is used
+#set($resourceClass = $myTool.getJavaClass('BACKEND_CONTROLLER', ${mainModelClass.qualifiedName}))
+ * in {@link $resourceClass.qualifiedName} to receive all the possible filtering options from
+ * the Http GET request parameters.
+ * For example the following could be a valid request:
+ * {@code /${entityApiUrl}?id.greaterThan=5&attr1.contains=something&attr2.specified=false}
+ * As Spring is unable to properly convert the types, unless specific {@link Filter} class are used, we need to use
+ * fix type specific filters.
+ */
+@ParameterObject
+@SuppressWarnings("common-java:DuplicatedBlocks")
+public class ${currentClass.simpleName} implements Serializable, Criteria {
+#foreach($customFilter in $entityJavaCustomFilters)## A
+
+    /**
+     * Class for filtering ${customFilter.fieldType}
+     */
+    public static class ${customFilter.type} extends ${customFilter.superType} {
+
+        public ${customFilter.type}() {}
+
+        public ${customFilter.type}(${customFilter.type} filter) {
+            super(filter);
+        }
+
+        @Override
+        public ${customFilter.type} copy() {
+            return new ${customFilter.type}(this);
+        }
+
+    }
+#end## A
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+#foreach ($field in $requestModelClass.fields)## A
+
+    private #getJavaTypeSimpleName($field.javaType) $field.property;
+#end## A
+
+    private Boolean distinct;
+
+    public ${currentClass.simpleName}() {
+    }
+
+    public ${currentClass.simpleName}(${currentClass.simpleName} other) {
+#foreach ($field in $requestModelClass.fields)## A
+        this.$field.property = other.optional$myTool.toUpperCamelCase($field.property)().map(#getJavaTypeSimpleName($field.javaType)::copy).orElse(null);
+#end## A
+        this.distinct = other.distinct;
+    }
+
+    @Override
+    public ${currentClass.simpleName} copy() {
+        return new ${currentClass.simpleName}(this);
+    }
+#foreach ($field in $requestModelClass.fields)## A
+#if($requestModelClass.superClass == $null || !${requestModelClass.superClass.containsProperty($field.property)})## A-1
+
+    public #getJavaTypeSimpleName($field.javaType) #getFieldGetterName($field)() {
+        return this.$field.property;
+    }
+
+    public void #getFieldSetterName($field)(#getJavaTypeSimpleName($field.javaType) $field.property) {
+        this.$field.property = $field.property;
+    }
+#end## A-1
+
+    public Optional<#getJavaTypeSimpleName($field.javaType)> optional$myTool.toUpperCamelCase($field.property)() {
+        return Optional.ofNullable($field.property);
+    }
+
+    public #getJavaTypeSimpleName($field.javaType) ${field.property}() {
+        if (${field.property} == null) {
+            $emptyStr#getFieldSetterName($field)(new #getJavaTypeSimpleName($field.javaType)());
+        }
+        return $field.property;
+    }
+#end## A
+
+    public Boolean getDistinct() {
+        return distinct;
+    }
+
+    public Optional<Boolean> optionalDistinct() {
+        return Optional.ofNullable(distinct);
+    }
+
+    public Boolean distinct() {
+        if (distinct == null) {
+            setDistinct(true);
+        }
+        return distinct;
+    }
+
+    public void setDistinct(Boolean distinct) {
+        this.distinct = distinct;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final ${currentClass.simpleName} that = (${currentClass.simpleName}) o;
+        return
+#foreach ($field in $requestModelClass.fields)## A
+            Objects.equals($field.property, that.$field.property) &&
+#end## A
+            Objects.equals(distinct, that.distinct);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+#foreach ($field in $requestModelClass.fields)## A
+          $field.property,
+#end## A
+          distinct
+        );
+    }
+
+    // prettier-ignore
+    @Override
+    public String toString() {
+        return "${currentClass.simpleName}{" +
+#foreach ($field in $requestModelClass.fields)## A
+            optional$myTool.toUpperCamelCase($field.property)().map(f -> "$field.property=" + f + ", ").orElse("") +
+#end## A
+            optionalDistinct().map(f -> "distinct=" + f + ", ").orElse("") +
+        "}";
+    }
+
+}

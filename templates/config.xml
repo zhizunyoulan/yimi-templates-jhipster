@@ -1,57 +1,143 @@
 <config>
   <templates location="backend">
     <template>
-      <id>SPRING_MODEL</id>
+      <id>BACKEND_MODEL</id>
       <sourcePath>backend/src/main/java/__base_package__/model/__modelName__.java.vm</sourcePath>
       <targetPath>src/main/java/__base_package__/domain/__modelName__.java</targetPath>
+      <modelBound>true</modelBound>
     </template>
     <template>
-      <id>SPRING_ENTITY_ID_CLASS</id>
+      <id>BACKEND_ENTITY_ID_CLASS</id>
       <sourcePath>backend/src/main/java/__base_package__/model/__modelName__IdClass.java.vm</sourcePath>
       <targetPath>src/main/java/__base_package__/domain/__modelName__IdClass.java</targetPath>
-      <condition>multiPrimaryKey</condition>
+      <modelBound>true</modelBound>
+      <condition>currentModel.fields.count { it.primaryKey } > 1</condition>
     </template>
     <template>
-      <id>SPRING_READ_RESULT</id>
-      <sourcePath>backend/src/main/java/__base_package__/model/projection/__modelName__ClassProjection.java.vm
+      <id>BACKEND_READ_RESULT_DTO</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/dto/_dtoClass_.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/service/dto/__modelName__DTO.java</targetPath>
+      <modelBound>true</modelBound>
+      <condition>resultModelClass?.classType == "DTO"</condition>
+    </template>
+    <template>
+      <id>BACKEND_READ_RESULT_INTERFACE</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/dto/I__modelName__.java.vm
       </sourcePath>
-      <targetPath>src/main/java/__base_package__/domain/__modelName__Dto.java</targetPath>
-      <condition>resultClassType == 'DTO'</condition>
+      <targetPath>src/main/java/__base_package__/domain/I__modelName__.java</targetPath>
+      <condition>resultModelClass?.classType == 'Interface'</condition>
     </template>
     <template>
-      <id>SPRING_READ_RESULT</id>
-      <sourcePath>backend/src/main/java/__base_package__/model/projection/__modelName__InterfaceProjection.java.vm
-      </sourcePath>
-      <targetPath>src/main/java/__base_package__/domain/__modelName__Projection.java</targetPath>
-      <condition>resultClassType == 'Interface'</condition>
-    </template>
-    <template>
-      <id>SPRING_READ_RESULT</id>
-      <sourcePath>backend/src/main/java/__base_package__/model/projection/__modelName__RecordProjection.java.vm
+      <id>BACKEND_READ_RESULT_RECORD</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/dto/__modelName__Record.java.vm
       </sourcePath>
       <targetPath>src/main/java/__base_package__/domain/__modelName__Record.java</targetPath>
-      <condition>resultClassType == 'Record'</condition>
+      <condition>resultModelClass?.classType == 'Record'</condition>
     </template>
     <template>
-      <id>SPRING_READ_REQUEST</id>
-      <sourcePath>backend/src/main/java/__base_package__/model/__modelName__Query.java.vm</sourcePath>
-      <targetPath>src/main/java/__base_package__/domain/__modelName__Query.java</targetPath>
+      <id>BACKEND_READ_REQUEST_DTO</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/criteria/_entityClass_Criteria.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/service/criteria/__modelName__Criteria.java</targetPath>
+      <condition>requestModelClass?.classType == 'DTO'</condition>
     </template>
+
     <template>
-      <id>SPRING_REPOSITORY</id>
-      <sourcePath>backend/src/main/java/__base_package__/dao/__modelName__Repository.java.vm</sourcePath>
+      <id>BACKEND_REPOSITORY</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/relational/repository/_entityClass_Repository.java.vm</sourcePath>
       <targetPath>src/main/java/__base_package__/repository/__modelName__Repository.java</targetPath>
+      <condition>!global.reactive</condition>
+    </template>
+
+    <template>
+      <id>BACKEND_REPOSITORY_WITH_BAG_RELATIONSHIPS</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/relational/repository/_entityClass_RepositoryWithBagRelationships.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/__modelName__RepositoryWithBagRelationships.java</targetPath>
+      <condition>!global.reactive && currentModel.fields.any { it.nestInfo != null && it.nestInfo.type == "collection" }</condition>
     </template>
     <template>
-      <id>SPRING_SERVICE_IMPL</id>
-      <sourcePath>backend/src/main/java/__base_package__/service/impl/__modelName__ServiceImpl.java.vm</sourcePath>
+      <id>BACKEND_REPOSITORY_WITH_BAG_RELATIONSHIPS_IMPL</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/relational/repository/_entityClass_RepositoryWithBagRelationshipsImpl.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/__modelName__RepositoryWithBagRelationshipsImpl.java</targetPath>
+      <condition>!global.reactive && currentModel.fields.any { it.nestInfo != null && it.nestInfo.type == "collection" }</condition>
+    </template>
+
+    <template>
+      <id>BACKEND_REPOSITORY_REACTIVE</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/relational/repository/_entityClass_Repository_reactive.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/__modelName__Repository.java</targetPath>
+      <condition>global.reactive && !global.entityR2dbcRepository</condition>
+    </template>
+    <template>
+      <id>BACKEND_REPOSITORY_INTERNALIMPL_REACTIVE</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/relational/repository/_entityClass_RepositoryInternalImpl_reactive.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/__modelName__RepositoryInternalImpl.java</targetPath>
+      <condition>global.reactive && !global.entityR2dbcRepository</condition>
+    </template>
+    <template>
+      <id>BACKEND_SQLHELPER_REACTIVE</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/relational/repository/_entityClass_SqlHelper_reactive.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/__modelName__SqlHelper.java</targetPath>
+      <condition>global.reactive && !global.entityR2dbcRepository</condition>
+    </template>
+    <template>
+      <id>BACKEND_ROWMAPPER_REACTIVE</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/relational/repository/rowmapper/_entityClass_RowMapper_reactive.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/rowmapper/__modelName__RowMapper.java</targetPath>
+      <condition>global.reactive && !global.entityR2dbcRepository</condition>
+    </template>
+
+    <template>
+      <id>BACKEND_REPOSITORY_R2DBC</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/relational/repository/_entityClass_Repository_r2dbc.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/__modelName__Repository.java</targetPath>
+      <condition>global.reactive && global.entityR2dbcRepository</condition>
+    </template>
+
+    <template>
+      <id>BACKEND_SEARCH_REPOSITORY</id>
+      <sourcePath>spring-boot/src/main/java/_package_/data/elasticsearch/repository/_entityClass_SearchRepository.java.vm
+      </sourcePath>
+      <targetPath>src/main/java/__base_package__/repository/search/__modelName__SearchRepository.java</targetPath>
+      <condition>global.searchEngine == 'elasticsearch'</condition>
+    </template>
+    <template>
+      <id>BACKEND_MAPPER</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/mapper/_entityClass_Mapper.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/service/mapper/__modelName__Mapper.java</targetPath>
+      <condition>resultModelClass?.classType == 'DTO' && global.service == 'no'</condition>
+    </template>
+    <template>
+      <id>BACKEND_QUERY_SERVICE</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/_entityClass_QueryService.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/service/__modelName__QueryService.java</targetPath>
+      <condition>readDefinition != null && !readDefinition.conditionFields.isEmpty() && !global.reactive</condition>
+    </template>
+    <template>
+      <id>BACKEND_SERVICE_INTERFACE</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/_entityClass_Service.java.vm</sourcePath>
       <targetPath>src/main/java/__base_package__/service/__modelName__Service.java</targetPath>
+      <condition>global.service == 'serviceImpl'</condition>
     </template>
     <template>
-      <id>SPRING_CONTROLLER</id>
-      <sourcePath>backend/src/main/java/__base_package__/controller/__modelName__Controller.java.vm</sourcePath>
+      <id>BACKEND_SERVICE_IMPL</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/impl/_entityClass_ServiceImpl.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/service/impl/__modelName__ServiceImpl.java</targetPath>
+      <condition>global.service == 'serviceImpl'</condition>
+    </template>
+    <template>
+      <id>BACKEND_SERVICE</id>
+      <sourcePath>spring-boot/src/main/java/_package_/service/impl/_entityClass_ServiceImpl.java.vm</sourcePath>
+      <targetPath>src/main/java/__base_package__/service/__modelName__Service.java</targetPath>
+      <condition>global.service == 'serviceClass'</condition>
+    </template>
+    <template>
+      <id>BACKEND_CONTROLLER</id>
+      <sourcePath>spring-boot/src/main/java/_package_/web/rest/_entityClass_Resource.java.vm</sourcePath>
       <targetPath>src/main/java/__base_package__/web/rest/__modelName__Resource.java</targetPath>
     </template>
+
+
+
   </templates>
 
   <templates location="frontend">
@@ -68,13 +154,13 @@
       </template>
       <template>
         <id>FRONTEND_COMPONENT_TS</id>
-        <condition>enableRead</condition>
+        <condition>readDefinition != null</condition>
         <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_.component.ts.vm</sourcePath>
         <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__.component.ts</targetPath>
       </template>
-      <!-- <template>
+      <template>
         <id>FRONTEND_LIST_VIEW</id>
-        <condition>enableRead</condition>
+        <condition>readDefinition != null</condition>
         <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_.vue.vm</sourcePath>
         <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__.vue</targetPath>
       </template>
@@ -82,11 +168,13 @@
         <id>FRONTEND_UPDATE_COMPONENT_TS</id>
         <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_-update.component.ts.vm</sourcePath>
         <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__-update.component.ts</targetPath>
+        <condition>readOnly == false</condition>
       </template>
       <template>
         <id>FRONTEND_UPDATE_VIEW</id>
         <sourcePath>client/_vue/app/entities/_entityFolder_/_entityFile_-update.vue.vm</sourcePath>
         <targetPath>app/entities/__kebabCaseModelName__/__kebabCaseModelName__-update.vue</targetPath>
+        <condition>readOnly == false</condition>
       </template>
       <template>
         <id>FRONTEND_DETAILS_COMPONENT_TS</id>
@@ -100,15 +188,16 @@
       </template>
       <template>
         <id>FRONTEND_ROUTER_ENTITIES</id>
-        <condition>enableRead</condition>
+        <condition>readDefinition != null</condition>
         <sourcePath>client/_vue/app/router/entities.ts.vm</sourcePath>
         <targetPath>app/router/entities.ts</targetPath>
-      </template> -->
+      </template>
     </profile>
   </templates>
 
 
   <basePackage>__groupId__</basePackage>
+  <databaseFramework>JPA</databaseFramework>
   <custom-variables>
     <variable type="Object">
       <property>readDefinition</property>
@@ -125,16 +214,16 @@
           <sortable>true</sortable>
         </variable>
         <variable type="Primitive">
-          <property>paginationNo</property>
-          <label>PaginationNo</label>
-          <javaType>Boolean</javaType>
-          <defaultValue>true</defaultValue>
-        </variable>
-        <variable type="Primitive">
-          <property>paginationInfiniteScroll</property>
-          <label>EndlessLoad</label>
-          <javaType>Boolean</javaType>
-          <defaultValue>false</defaultValue>
+          <property>paginate</property>
+          <label>Paginate</label>
+          <javaType>String</javaType>
+          <defaultValue>no</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="pagination" value="pagination"/>
+            <option label="infinite-scroll" value="infinite-scroll"/>
+            <option label="no" value="no"/>
+          </options>
         </variable>
       </sub-variables>
     </variable>
@@ -170,7 +259,14 @@
         <variable type="Object">
           <property>selectProperties</property>
           <label>SelectProperties</label>
-          <sub-variables/>
+          <sub-variables>
+            <variable type="Primitive">
+              <property>relationshipRequired</property>
+              <label>Required</label>
+              <javaType>Boolean</javaType>
+              <defaultValue>false</defaultValue>
+            </variable>
+          </sub-variables>
           <display-locations>
             <location>readDefinition.selectFields</location>
           </display-locations>
@@ -191,6 +287,230 @@
             <location>createDefinition.formFields</location>
             <location>updateDefinition.formFields</location>
           </display-locations>
+        </variable>
+      </sub-variables>
+    </variable>
+    <variable type="Object">
+      <property>global</property>
+      <label>Global</label>
+      <sub-variables>
+        <variable type="Primitive">
+          <property>applicationType</property>
+          <label>ApplicationType</label>
+          <javaType>String</javaType>
+          <defaultValue>monolith</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="monolith" value="monolith"/>
+            <option label="microservice" value="microservice"/>
+            <option label="gateway" value="gateway"/>
+          </options>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>authenticationType</property>
+          <label>AuthenticationType</label>
+          <javaType>String</javaType>
+          <defaultValue>jwt</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="jwt" value="jwt"/>
+            <option label="session" value="session"/>
+            <option label="oauth2" value="oauth2"/>
+          </options>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>baseName</property>
+          <label>BaseName</label>
+          <javaType>String</javaType>
+          <inputType>input</inputType>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>cacheProvider</property>
+          <label>CacheProvider</label>
+          <javaType>String</javaType>
+          <defaultValue>ehcache</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="caffeine" value="caffeine"/>
+            <option label="ehcache" value="ehcache"/>
+            <option label="hazelcast" value="hazelcast"/>
+            <option label="infinispan" value="infinispan"/>
+            <option label="memcached" value="memcached"/>
+            <option label="redis" value="redis"/>
+            <option label="no" value="no"/>
+          </options>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>databaseType</property>
+          <label>DatabaseType</label>
+          <javaType>String</javaType>
+          <defaultValue>sql</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="sql" value="sql"/>
+            <option label="mongodb" value="mongodb"/>
+            <option label="cassandra" value="cassandra"/>
+            <option label="couchbase" value="couchbase"/>
+            <option label="no" value="no"/>
+          </options>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>enableHibernateCache</property>
+          <label>EnableHibernateCache</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>true</defaultValue>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>enableSwaggerCodegen</property>
+          <label>EnableSwaggerCodegen</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>false</defaultValue>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>enableTranslation</property>
+          <label>EnableTranslation</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>true</defaultValue>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>languages</property>
+          <label>Languages</label>
+          <javaType>String</javaType>
+          <defaultValue>en</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="en" value="en"/>
+            <option label="zh-cn" value="zh-cn"/>
+          </options>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>prodDatabaseType</property>
+          <label>ProdDatabaseType</label>
+          <javaType>String</javaType>
+          <defaultValue>mysql</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="mysql" value="mysql"/>
+            <option label="mariadb" value="mariadb"/>
+            <option label="mssql" value="mssql"/>
+            <option label="postgresql" value="postgresql"/>
+            <option label="oracle" value="oracle"/>
+            <option label="no" value="no"/>
+          </options>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>reactive</property>
+          <label>Reactive</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>false</defaultValue>
+        </variable>
+        <variable type="Primitive">
+          <property>searchEngine</property>
+          <label>SearchEngine</label>
+          <javaType>String</javaType>
+          <defaultValue>elasticsearch</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="elasticsearch" value="elasticsearch"/>
+            <option label="couchbase" value="couchbase"/>
+            <option label="no" value="no"/>
+          </options>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>noFluentMethod</property>
+          <label>NoFluentMethod</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>false</defaultValue>
+        </variable>
+        <variable type="Primitive">
+          <property>service</property>
+          <label>Service</label>
+          <javaType>String</javaType>
+          <defaultValue>no</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="serviceClass" value="serviceClass"/>
+            <option label="serviceImpl" value="serviceImpl"/>
+            <option label="no" value="no"/>
+          </options>
+        </variable>
+        <variable type="Primitive">
+          <property>filtering</property>
+          <label>Filtering</label>
+          <javaType>String</javaType>
+          <defaultValue>no</defaultValue>
+          <inputType>select</inputType>
+          <options>
+            <option label="no" value="no"/>
+            <option label="jpaMetamodel" value="jpaMetamodel"/>
+          </options>
+        </variable>
+        <variable type="Primitive">
+          <property>clientRootFolder</property>
+          <label>ClientRootFolder</label>
+          <javaType>String</javaType>
+          <inputType>input</inputType>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>eagerLoad</property>
+          <label>EagerLoad</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>false</defaultValue>
+        </variable>
+        <variable type="Primitive">
+          <property>entitySpringPreAuthorizePrefix</property>
+          <label>PreAuthorizePrefix</label>
+          <javaType>String</javaType>
+          <inputType>input</inputType>
+        </variable>
+        <variable type="Primitive">
+          <property>entityR2dbcRepository</property>
+          <label>EntityR2dbcRepository</label>
+          <javaType>Boolean</javaType>
+          <defaultValue>false</defaultValue>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>microserviceName</property>
+          <label>MicroserviceName</label>
+          <javaType>String</javaType>
+          <inputType>input</inputType>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>clientRootFolder</property>
+          <label>ClientRootFolder</label>
+          <javaType>String</javaType>
+          <inputType>input</inputType>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>jhiPrefix</property>
+          <label>JhiPrefix</label>
+          <javaType>String</javaType>
+          <defaultValue>jhi</defaultValue>
+          <inputType>input</inputType>
+          <designVisible>false</designVisible>
+        </variable>
+        <variable type="Primitive">
+          <property>nativeLanguage</property>
+          <label>NativeLanguage</label>
+          <javaType>String</javaType>
+          <defaultValue>zh-cn</defaultValue>
+          <inputType>input</inputType>
+          <designVisible>false</designVisible>
         </variable>
       </sub-variables>
     </variable>

@@ -1,0 +1,147 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${currentClass.packageName};
+
+#set($serviceClassName = "${entityClass}QueryService")
+#set($instanceType = $restClass)
+#set($mapper = $entityInstance + 'Mapper')
+#set($entityListToDto = $mapper + '.' + 'toDto')
+#set($entityToDtoReference = $mapper + '::' + 'toDto')
+#set($repository = $entityInstance + 'Repository')
+#set($criteria = $entityClass + 'Criteria')
+
+import java.util.List;
+
+import jakarta.persistence.criteria.JoinType;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import tech.jhipster.service.QueryService;
+
+import ${mainModelClass.qualifiedName};
+import ${groupId}.domain.*; // for static metamodels
+import ${repositoryClass.qualifiedName};
+#if($searchEngineElasticsearch)## A
+#set($searchRepositoryClass = $myTool.getJavaClass('BACKEND_SEARCH_REPOSITORY', ${mainModelClass.qualifiedName}))
+import ${searchRepositoryClass.qualifiedName};
+#end## A
+import ${requestModelClass.qualifiedName};
+#if($dtoMapstruct)## A
+import ${resultModelClass.qualifiedName};
+import ${mapperClass.qualifiedName};
+#end## A
+
+/**
+ * Service for executing complex queries for {@link ${persistClass}} entities in the database.
+ * The main input is a {@link ${entityClass}Criteria} which gets converted to {@link Specification},
+ * in a way that all the filters must apply.
+ * It returns a {@link #{if}($paginationNo)List#{else}Page#{end}} of {@link ${instanceType}} which fulfills the criteria.
+ */
+@Service
+#if($databaseTypeSql)## A
+@Transactional(readOnly = true)
+#end## A
+public class ${currentClass.simpleName} extends QueryService<${persistClass}> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(${currentClass.simpleName}.class);
+## 参数：viaService, constructorName, queryService, isUsingMapsId, mapsIdAssoc, isController
+## 参数：readOnly, viaService, constructorName, queryService, isUsingMapsId, mapsIdAssoc, isController, reactive
+#_partials_entity_inject_template($readOnly false ${currentClass.simpleName} false false $mapsIdAssoc false, $reactive)
+#if($paginationNo)## A
+
+    /**
+     * Return a {@link List} of {@link ${instanceType}} which matches the criteria from the database.
+     * @param criteria The object which holds all the filters, which the entities should match.
+     * @return the matching entities.
+     */
+    @Transactional(readOnly = true)
+    public List<${instanceType}> findByCriteria(${criteria} criteria) {
+        LOG.debug("find by criteria : {}", criteria);
+        final Specification<${persistClass}> specification = createSpecification(criteria);
+  #if($dtoMapstruct)## A-1
+        return ${entityListToDto}(#{if}($containsBagRelationships)${repository}.fetchBagRelationships(#{end}${repository}.findAll(specification)#{if}($containsBagRelationships))#{end});
+  #else## A-1
+        return #{if}($containsBagRelationships)${repository}.fetchBagRelationships(#{end}${repository}.findAll(specification)#{if}($containsBagRelationships))#{end};
+  #end## A-1
+    }
+#else## A
+
+    /**
+     * Return a {@link Page} of {@link ${instanceType}} which matches the criteria from the database.
+     * @param criteria The object which holds all the filters, which the entities should match.
+     * @param page The page, which should be returned.
+     * @return the matching entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<${instanceType}> findByCriteria(${criteria} criteria, Pageable page) {
+        LOG.debug("find by criteria : {}, page: {}", criteria, page);
+        final Specification<${persistClass}> specification = createSpecification(criteria);
+  #if($dtoMapstruct)## A-1
+        return #{if}($containsBagRelationships)${repository}.fetchBagRelationships(#{end}${repository}.findAll(specification, page)#{if}($containsBagRelationships))#{end}
+            .map(${entityToDtoReference});
+  #else## A-1
+        return #{if}($containsBagRelationships)${repository}.fetchBagRelationships(#{end}${repository}.findAll(specification, page)#{if}($containsBagRelationships))#{end};
+  #end## A-1
+    }
+#end## A
+
+    /**
+     * Return the number of matching entities in the database.
+     * @param criteria The object which holds all the filters, which the entities should match.
+     * @return the number of matching entities.
+     */
+    @Transactional(readOnly = true)
+    public long countByCriteria(${criteria} criteria) {
+        LOG.debug("count by criteria : {}", criteria);
+        final Specification<${persistClass}> specification = createSpecification(criteria);
+        return ${repository}.count(specification);
+    }
+
+    /**
+     * Function to convert {@link ${criteria}} to a {@link Specification}
+     * @param criteria The object which holds all the filters, which the entities should match.
+     * @return the matching {@link Specification} of the entity.
+     */
+    protected Specification<${persistClass}> createSpecification(${criteria} criteria) {
+        Specification<${persistClass}> specification = Specification.unrestricted();
+        if (criteria != null) {
+            // This has to be called first, because the distinct method returns null
+            specification = Specification.allOf(
+                Boolean.TRUE.equals(criteria.getDistinct()) ? distinct(criteria.getDistinct()) : Specification.unrestricted()
+#foreach($field in $fields)## A
+#if(!$field.transient && $field.filterableField)## A-1
+                ,
+                ${field.fieldJavaBuildSpecification}(criteria.${field.propertyFilterSupplierName}(), ${persistClass}_.${field.fieldName})
+#end## A-1
+#end## A
+#foreach($relationship in $relationships)## A
+                ,
+                buildSpecification(criteria.${relationship.propertyFilterSupplierName}(),
+                    root -> root.join(${persistClass}_.${relationship.propertyName}, JoinType.LEFT).get(${relationship.otherEntity.persistClass}_.${relationship.otherEntity.primaryKey.name}))
+#end## A
+            );
+        }
+        return specification;
+    }
+}

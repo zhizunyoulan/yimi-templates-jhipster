@@ -1,0 +1,281 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${currentClass.packageName};
+
+import java.util.function.BiFunction;
+#if($anyFieldIsBigDecimal)## A
+import java.math.BigDecimal;
+#end## A
+#if($anyFieldIsInstant)## A
+import java.time.Instant;
+#end## A
+#if($anyFieldIsLocalDate)## A
+import java.time.LocalDate;
+#end## A
+#if($anyFieldIsZonedDateTime)## A
+import java.time.ZonedDateTime;
+#end## A
+#if($anyFieldIsDuration)## A
+import java.time.Duration;
+#end## A
+#if($anyFieldIsUUID)## A
+import java.util.UUID;
+#end## A
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Pageable;
+import io.r2dbc.spi.Row;
+import io.r2dbc.spi.RowMetadata;
+import static org.springframework.data.relational.core.query.Criteria.where;
+#if($containsBagRelationships)## A
+import static org.springframework.data.relational.core.query.Query.query;
+#end## A
+import org.springframework.data.r2dbc.convert.R2dbcConverter;
+import org.springframework.data.r2dbc.core.R2dbcEntityOperations;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.r2dbc.repository.support.SimpleR2dbcRepository;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.sql.Column;
+import org.springframework.data.relational.core.sql.Comparison;
+import org.springframework.data.relational.core.sql.Condition;
+import org.springframework.data.relational.core.sql.Conditions;
+import org.springframework.data.relational.core.sql.Expression;
+import org.springframework.data.relational.core.sql.Select;
+import org.springframework.data.relational.core.sql.SelectBuilder.SelectFromAndJoin#{if}($reactiveEagerRelations.size() > 0)Condition#{end};
+import org.springframework.data.relational.core.sql.Table;
+import org.springframework.data.relational.repository.support.MappingRelationalEntityInformation;
+import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.r2dbc.core.RowsFetchSpec;
+
+import ${mainModelClass.qualifiedName};
+#if($jpaMetamodelFiltering && $reactive)## A
+import ${requestModelClass.qualifiedName};
+import ${groupId}.repository.rowmapper.ColumnConverter;
+import tech.jhipster.service.ConditionBuilder;
+#end## A
+#foreach($rel in $relationships)## A
+#if($rel.relationshipManyToMany && $rel.ownerSide)## A-1
+import ${rel.otherEntity.entityAbsolutePackage}.domain.${rel.otherEntity.persistClass};
+#end## A-1
+#end## A
+#foreach($enumField in $uniqueEnums)## A
+import ${entityAbsolutePackage}.domain.enumeration.${enumField.fieldType};
+#end## A
+
+#foreach($otherEntity in $reactiveOtherEntities)## A
+import ${otherEntity.entityAbsolutePackage}.repository.rowmapper.${otherEntity.entityClass}RowMapper;
+#if($otherEntity.entityPackage != $entityPackage)## A-1
+import ${otherEntity.entityAbsolutePackage}.repository.${otherEntity.entityClass}SqlHelper;
+#end## A-1
+#end## A
+#if($packageName != $entityAbsolutePackage)## A
+import ${packageName}.repository.EntityManager;
+#end## A
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+/**
+ * ${springDataDescription} custom repository implementation for the ${persistClass} entity.
+ */
+@SuppressWarnings("unused")
+class ${currentClass.simpleName} extends SimpleR2dbcRepository<${persistClass}, ${primaryKey.type}> implements ${entityClass}RepositoryInternal {
+    private final DatabaseClient db;
+    private final R2dbcEntityTemplate r2dbcEntityTemplate;
+    private final EntityManager entityManager;
+
+#foreach($element in $reactiveUniqueEntityTypes)## A
+    private final ${element}RowMapper ${element.toLowerCase()}Mapper;
+#end## A
+#if($jpaMetamodelFiltering && $reactive)## A
+    private final ColumnConverter columnConverter;
+#end## A
+
+    private final static Table entityTable = Table.aliased("${mainModel.tableAlias|$mainModel.tableName}", EntityManager.ENTITY_ALIAS);
+#foreach($rel in $reactiveEagerRelations)## A
+    private final static Table ${rel.relationshipName}Table = Table.aliased("${rel.otherEntity.entityTableName}", "${rel.relationshipSqlSafeName}");
+#end## A
+
+#foreach($rel in $relationships)## A
+#if($rel.shouldWriteJoinTable)## A-1
+    private final static EntityManager.LinkTable ${rel.relationshipName}Link = new EntityManager.LinkTable("${rel.joinTable.name}", "${mainModel.tableAlias|$mainModel.tableName}_${primaryKey.hibernateSnakeCaseName}", "${rel.joinColumnNames[0]}");
+#end## A-1
+#end## A
+
+    public ${entityClass}RepositoryInternalImpl(R2dbcEntityTemplate template, EntityManager entityManager#foreach($element in $reactiveUniqueEntityTypes), ${element}RowMapper ${element.toLowerCase()}Mapper#end, R2dbcEntityOperations entityOperations,
+        R2dbcConverter converter#if($jpaMetamodelFiltering && $reactive),
+        ColumnConverter columnConverter#{end}) {
+        super(new MappingRelationalEntityInformation(converter.getMappingContext().getRequiredPersistentEntity(${persistClass}.class)), entityOperations, converter);
+        this.db = template.getDatabaseClient();
+        this.r2dbcEntityTemplate = template;
+        this.entityManager = entityManager;
+#foreach($element in $reactiveUniqueEntityTypes)## A
+        this.${element.toLowerCase()}Mapper = ${element.toLowerCase()}Mapper;
+#end## A
+#if($jpaMetamodelFiltering && $reactive)## A
+        this.columnConverter = columnConverter;
+#end## A
+    }
+
+    @Override
+    public Flux<${persistClass}> findAllBy(Pageable pageable) {
+        return createQuery(pageable, null).all();
+    }
+
+    RowsFetchSpec<${persistClass}> createQuery(Pageable pageable, Condition whereClause) {
+        List<Expression> columns = ${entityClass}SqlHelper.getColumns(entityTable, EntityManager.ENTITY_ALIAS);
+#foreach($rel in $reactiveEagerRelations)## A
+        columns.addAll(${rel.otherEntity.entityNameCapitalized}SqlHelper.getColumns(${rel.relationshipName}Table, "${rel.relationshipName}"));
+#end## A
+        SelectFromAndJoin#{if}($reactiveEagerRelations.size() > 0)Condition#{end} selectFrom = Select.builder().select(columns).from(entityTable)
+#foreach($rel in $reactiveEagerRelations)## A
+            .leftOuterJoin(${rel.relationshipName}Table).on(Column.create("${rel.joinColumnNames[0]}", entityTable)).equals(Column.create("${rel.otherEntity.primaryKeyField.columnName}", ${rel.relationshipName}Table))
+#end## A
+;
+        // we do not support Criteria here for now as of https://github.com/jhipster/generator-jhipster/issues/18269
+        String select = entityManager.createSelect(selectFrom, ${persistClass}.class, pageable, whereClause);
+        return db.sql(select).map(this::process);
+    }
+
+    @Override
+    public Flux<${persistClass}> findAll() {
+        return findAllBy(null);
+    }
+
+    @Override
+    public Mono<${persistClass}> findById(${primaryKey.type} id) {
+#if($primaryKey.type != 'Long')## A
+        Comparison whereClause = Conditions.isEqual(entityTable.column("${primaryKeyField.columnName}"), Conditions.just(StringUtils.wrap(id.toString(), "'")));
+#else## A
+        Comparison whereClause = Conditions.isEqual(entityTable.column("${primaryKeyField.columnName}"), Conditions.just(id.toString()));
+#end## A
+        return createQuery(null, whereClause).one();
+    }
+
+#if($implementsEagerLoadApis)## A
+
+    @Override
+    public Mono<${persistClass}> findOneWithEagerRelationships(${primaryKey.type} id) {
+        return findById(id);
+    }
+
+    @Override
+    public Flux<${persistClass}> findAllWithEagerRelationships() {
+        return findAll();
+    }
+
+    @Override
+    public Flux<${persistClass}> findAllWithEagerRelationships(Pageable page) {
+        return findAllBy(page);
+    }
+
+#end## A
+    private ${persistClass} process(Row row, RowMetadata metadata) {
+        ${persistClass} entity = ${entityClass.toLowerCase()}Mapper.apply(row, "e");
+#foreach($rel in $reactiveEagerRelations)## A
+        entity.${rel.propertyConsumerName}(${rel.otherEntity.entityNameCapitalized.toLowerCase()}Mapper.apply(row, "${rel.relationshipName}"));
+#end## A
+        return entity;
+    }
+
+    @Override
+    public <S extends ${persistClass}> Mono<S> save(S entity) {
+#if($isUsingMapsId)## A
+        if (entity.${primaryKey.propertySupplierName}() == null && entity.${mapsIdAssoc.propertySupplierName}() != null) {
+            entity.${primaryKey.propertyConsumerName}(entity.${mapsIdAssoc.propertySupplierName}().${mapsIdAssoc.otherEntity.primaryKey.propertySupplierName}());
+            return entityManager.insert(entity);
+        }
+#end## A
+        return super.save(entity)#{if}($containsBagRelationships).flatMap((S e) -> updateRelations(e))#{end};
+    }
+
+#if($containsBagRelationships)## A
+    protected <S extends ${persistClass}> Mono<S> updateRelations(S entity) {
+#set($idx = 0)##
+#foreach($rel in $relationships)## A-1
+#if($rel.relationshipManyToMany && $rel.ownerSide)## A-1-1
+#if($idx == 0)## A-1-1-1
+        Mono<Void> result = entityManager.updateLinkTable(${rel.relationshipName}Link, entity.${primaryKey.propertySupplierName}(), entity.${rel.propertySupplierName}().stream().map(${rel.otherEntity.persistClass}::${rel.otherEntity.primaryKey.propertySupplierName})).then();
+#set($idx = 1)##
+#else## A-1-1-1
+        result = result.and(entityManager.updateLinkTable(${rel.relationshipName}Link, entity.${primaryKey.propertySupplierName}(), entity.${rel.propertySupplierName}().stream().map(${rel.otherEntity.persistClass}::${rel.otherEntity.primaryKey.propertySupplierName})));
+#end## A-1-1-1
+#end## A-1-1
+#end## A-1
+        return result.thenReturn(entity);
+    }
+
+    @Override
+    public Mono<Void> deleteById(${primaryKey.type} entityId) {
+        return deleteRelations(entityId)
+            .then(super.deleteById(entityId));
+    }
+
+    protected Mono<Void> deleteRelations(${primaryKey.type} entityId) {
+#set($idx = 0)##
+#foreach($rel in $relationships)## A-1
+#if($rel.relationshipManyToMany && $rel.ownerSide)## A-1-1
+#if($idx == 0)## A-1-1-1
+        return entityManager.deleteFromLinkTable(${rel.relationshipName}Link, entityId)
+#set($idx = 1)##
+#else## A-1-1-1
+            .and(entityManager.deleteFromLinkTable(${rel.relationshipName}Link, entityId))
+#end## A-1-1-1
+#end## A-1-1
+#end## A-1
+        ;
+        }
+#end## A
+#if($jpaMetamodelFiltering && $reactive)## A
+    @Override
+    public Flux<${persistClass}> findByCriteria(${entityClass}Criteria ${entityInstance}Criteria, Pageable page) {
+        return createQuery(page, buildConditions(${entityInstance}Criteria)).all();
+    }
+
+    @Override
+    public Mono<Long> countByCriteria(${entityClass}Criteria criteria) {
+        return findByCriteria(criteria, null)
+                    .collectList()
+                        .map(collectedList -> collectedList != null ? (long) collectedList.size() : (long) 0);
+    }
+
+    private Condition buildConditions(${entityClass}Criteria criteria) {
+        ConditionBuilder builder = new ConditionBuilder(this.columnConverter);
+        List<Condition> allConditions = new ArrayList<Condition>();
+        if (criteria != null) {
+#foreach($field in $fields)## A
+#if(!$field.transient && $field.filterableField)## A-1
+            if (criteria.${field.propertyFilterSupplierName}() != null) {
+                builder.buildFilterConditionForField(criteria.${field.propertyFilterSupplierName}(), entityTable.column("${field.columnName}"));
+            }
+#end## A-1
+#end## A
+#foreach($rel in $reactiveEagerRelations)## A
+            if (criteria.${rel.propertyFilterSupplierName}() != null) {
+                builder.buildFilterConditionForField(criteria.${rel.propertyFilterSupplierName}(), ${rel.relationshipName}Table.column("${rel.otherEntity.primaryKey.ownFields[0].columnName}"));
+            }
+#end## A
+        }
+        return builder.buildConditions();
+    }
+#end## A
+}

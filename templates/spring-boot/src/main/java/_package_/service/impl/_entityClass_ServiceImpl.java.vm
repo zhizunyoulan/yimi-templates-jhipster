@@ -1,0 +1,347 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${currentClass.packageName};
+
+#set($instanceType = $restClass)
+#set($instanceName = $restInstance)
+#if($reactive)## A
+#set($optionalOrMono = "Mono")
+#set($listOrFlux = "Flux")
+#set($pageOrFlux = "Flux")
+#set($monoVoidOrVoid = "Mono<Void>")
+#else## A
+#set($optionalOrMono = "Optional")
+#set($listOrFlux = "List")
+#set($pageOrFlux = "Page")
+#set($monoVoidOrVoid = "void")
+#end## A
+#set($mapper = $entityInstance + 'Mapper')## A
+#set($entityToDtoReference = $mapper + '::' + 'toDto')## A
+#set($repository = $entityInstance + 'Repository')## A
+#set($anyFieldNotIdAndNotTransient = false)
+#foreach($field in $mainModel.fields)## A
+#if(!$field.primaryKey && !$field.hasModifierProperty("transient"))## A-1
+#set($anyFieldNotIdAndNotTransient = true)
+#end## A-1
+#end## A
+#if($serviceImpl)## A
+import ${serviceClass.qualifiedName};
+#end## A
+import ${mainModelClass.qualifiedName};
+#if($jpaMetamodelFiltering && $reactive)## A
+import ${requestModelClass.qualifiedName};
+#end## A
+import ${repositoryClass.qualifiedName};
+#if($isUsingMapsId == true)## A
+import ${groupId}.repository.${mapsIdAssoc.otherEntity.entityNameCapitalized}Repository;
+#end## A
+#if($searchEngineElasticsearch)## A
+import ${groupId}.repository.search.${entityClass}SearchRepository;
+#end## A
+#if($dtoMapstruct)## A
+import ${resultModelClass.qualifiedName};
+import ${mapperClass.qualifiedName};
+#end## A
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+#if(!$paginationNo || $implementsEagerLoadApis)## A
+#if(!$reactive)## A-1
+import org.springframework.data.domain.Page;
+#end## A-1
+import org.springframework.data.domain.Pageable;
+#end## A
+import org.springframework.stereotype.Service;
+#if($databaseTypeSql)## A
+import org.springframework.transaction.annotation.Transactional;
+#end## A
+#if($reactive)## A
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+#end## A
+
+#if($dtoMapstruct && ($paginationNo || $fieldsContainNoOwnerOneToOne))## A
+import java.util.LinkedList;
+#end## A
+#if($paginationNo || $fieldsContainNoOwnerOneToOne)## A
+import java.util.List;
+#end## A
+#if(!$reactive)## A
+import java.util.Optional;
+#end## A
+#if($updatableEntity && !$dtoMapstruct && $anyFieldNotIdAndNotTransient)## A
+import java.util.function.Consumer;
+#end## A
+#if($primaryKey.typeUUID)## A
+import java.util.UUID;
+#end## A
+#if($fieldsContainNoOwnerOneToOne || ($paginationNo && ($searchEngine || $dtoMapstruct)))## A
+import java.util.stream.Collectors;
+#end## A
+#if($fieldsContainNoOwnerOneToOne || ($paginationNo && $searchEngineElasticsearch))## A
+import java.util.stream.StreamSupport;
+#end## A
+
+/**
+ * Service Implementation for managing {@link ${entityAbsoluteClass}}.
+ */
+@Service#if($databaseTypeSql)
+@Transactional#end
+public class ${currentClass.simpleName}#{if}($serviceImpl) implements ${entityClass}Service#{end} {
+
+    private static final Logger LOG = LoggerFactory.getLogger(${currentClass.simpleName}.class);
+## 参数：viaService, constructorName, queryService, isUsingMapsId, mapsIdAssoc, isController
+## 参数：readOnly, viaService, constructorName, queryService, isUsingMapsId, mapsIdAssoc, isController, reactive
+#_partials_entity_inject_template($readOnly false ${currentClass.simpleName} false $isUsingMapsId $mapsIdAssoc false, $reactive)
+
+#if(!$serviceImpl)## A
+    /**
+     * Save a ${entityInstance}.
+     *
+     * @param ${instanceName} the entity to save.
+     * @return the persisted entity.
+     */
+#end## A
+#if($serviceImpl)## A
+    @Override
+#end## A
+    public #{if}($reactive)Mono<#{end}${instanceType}#{if}($reactive)>#{end} save(${instanceType} ${instanceName}) {
+        LOG.debug("Request to save ${entityClass} : {}", ${instanceName});
+## 参数：saveNewEntityOperation, returnDirectly
+#_global_partials_entity_save_template(true true)
+    }
+#if($updatableEntity)## A
+
+#if(!$serviceImpl)## A
+    /**
+     * Update a ${entityInstance}.
+     *
+     * @param ${instanceName} the entity to save.
+     * @return the persisted entity.
+    */
+#end## A
+#if($serviceImpl)## A
+    @Override
+#end## A
+    public #{if}($reactive)Mono<#{end}${instanceType}#{if}($reactive)>#{end} update(${instanceType} ${instanceName}) {
+        LOG.debug("Request to update ${entityClass} : {}", ${instanceName});
+## 参数：saveNewEntityOperation, returnDirectly
+#_global_partials_entity_save_template(false true)
+    }
+
+#if(!$serviceImpl)## A
+    /**
+     * Partially update a ${entityInstance}.
+     *
+     * @param ${instanceName} the entity to update partially.
+     * @return the persisted entity.
+     */
+#end## A
+#if($serviceImpl)## A
+    @Override
+#end## A
+    public #{if}($reactive)Mono#{else}Optional#{end}<${instanceType}> partialUpdate(${instanceType} ${instanceName}) {
+        LOG.debug("Request to partially update ${entityClass} : {}", ${instanceName});
+## 参数：isService, viaService
+#_partials_entity_patch_template(true false)
+    }
+#end## A
+#if(!$jpaMetamodelFiltering)## A
+
+#if(!$serviceImpl)## A
+    /**
+     * Get all the ${entityInstancePlural}.
+     *
+#if(!$paginationNo)## A-1
+     * @param pageable the pagination information.
+#end## A-1
+     * @return the list of entities.
+     */
+#end## A
+#if($serviceImpl)## A
+    @Override
+#end## A
+#if($databaseTypeSql)## A
+    @Transactional(readOnly = true)
+#end## A
+    public #{if}($paginationNo)${listOrFlux}#{else}${pageOrFlux}#{end}<${instanceType}> findAll(#{if}(!$paginationNo)Pageable pageable#{end}) {
+        LOG.debug("Request to get all ${entityClassPlural}");
+#if($paginationNo)## A-1
+        return ${entityInstance}Repository.findAll()#{if}($dtoMapstruct)#{if}(!$reactive).stream()#{end}
+            .map(${entityToDtoReference})#{if}(!$reactive)
+            .collect(Collectors.toCollection(LinkedList::new))#{end}#{end};
+#else## A-1
+        return ${entityInstance}Repository.findAll#{if}($reactive)By#{end}(pageable)#{if}(!$dtoMapstruct);#{else}
+            .map(${entityToDtoReference});#{end}
+#end## A-1
+    }
+#end## A
+#if($jpaMetamodelFiltering && $reactive)## A
+
+#if(!$serviceImpl)## A
+    /**
+    * Find ${entityInstancePlural} by Criteria.
+    *
+#if(!$paginationNo)## A-1
+    * @param pageable the pagination information.
+#end## A-1
+    * @return the list of entities.
+    */
+#end## A
+#if($serviceImpl)## A
+    @Override
+#end## A
+#if($databaseTypeSql)## A
+    @Transactional(readOnly = true)
+#end## A
+    public #{if}($paginationNo)${listOrFlux}#{else}${pageOrFlux}#{end}<${instanceType}> findByCriteria(${entityClass}Criteria criteria#{if}(!$paginationNo), Pageable pageable#{end}) {
+        LOG.debug("Request to get all ${entityClassPlural} by Criteria");
+#if($paginationNo)## A-1
+        return ${entityInstance}Repository.findByCriteria(criteria, null)#{if}($dtoMapstruct).map(${entityToDtoReference})#{end};
+#else## A-1
+        return ${entityInstance}Repository.findByCriteria(criteria, pageable)#{if}($dtoMapstruct).map(${entityToDtoReference})#{end};
+#end## A-1
+    }
+
+    /**
+    * Find the count of ${entityInstancePlural} by criteria.
+    * @param criteria filtering criteria
+    * @return the count of ${entityInstancePlural}
+    */
+    public Mono<Long> countByCriteria(${entityClass}Criteria criteria) {
+        LOG.debug("Request to get the count of all ${entityClassPlural} by Criteria");
+        return ${entityInstance}Repository.countByCriteria(criteria);
+    }
+#end## A
+
+#if($implementsEagerLoadApis)## A
+
+#if(!$serviceImpl)## A
+    /**
+     * Get all the ${entityInstancePlural} with eager load of many-to-many relationships.
+     *
+     * @return the list of entities.
+     */
+#end## A
+    public ${pageOrFlux}<${instanceType}> findAllWithEagerRelationships(Pageable pageable) {
+        return ${entityInstance}Repository.findAllWithEagerRelationships(pageable)#{if}(!$dtoMapstruct);#{else}.map(${entityToDtoReference});#{end}
+    }
+#end## A
+## 参数：无
+#_partials_entity_get_filtered_template()
+#if($reactive)## A
+#if(!$serviceImpl)## A
+    /**
+     * Returns the number of ${entityInstancePlural} available.
+     * @return the number of entities in the database.
+     *
+     */
+#end## A
+    public Mono<Long> countAll() {
+        return ${entityInstance}Repository.count();
+    }
+#if($searchEngineElasticsearch)## A-1
+
+#if(!$serviceImpl)## A-1-1
+    /**
+     * Returns the number of ${entityInstancePlural} available in search repository.
+     *
+     */
+#end## A-1-1
+    public Mono<Long> searchCount() {
+        return ${entityInstance}SearchRepository.count();
+    }
+#end## A-1
+
+#end## A
+#if(!$serviceImpl)## A
+    /**
+     * Get one ${entityInstance} by id.
+     *
+     * @param id the id of the entity.
+     * @return the entity.
+     */
+#end## A
+#if($serviceImpl)## A
+    @Override
+#end## A
+#if($databaseTypeSql)## A
+    @Transactional(readOnly = true)
+#end## A
+    public ${optionalOrMono}<${instanceType}> findOne(${primaryKey.type} id) {
+        LOG.debug("Request to get ${entityClass} : {}", id);## 参数：viaService, returnDirectly, implementsEagerLoadApis
+#_partials_entity_get_template(false true $implementsEagerLoadApis)
+    }
+
+#if(!$serviceImpl)## A
+    /**
+     * Delete the ${entityInstance} by id.
+     *
+     * @param id the id of the entity.
+#if($reactive)## A
+     * @return a Mono to signal the deletion
+#end## A
+     */
+#end## A
+#if($serviceImpl)## A
+    @Override
+#end## A
+    public ${monoVoidOrVoid} delete(${primaryKey.type} id) {
+        LOG.debug("Request to delete ${entityClass} : {}", id);
+## 参数：viaService, fromResource
+#_partials_entity_delete_template(false false)
+    }
+#if($searchEngineAny)## A
+
+#if(!$serviceImpl)## A
+    /**
+     * Search for the ${entityInstance} corresponding to the query.
+     *
+     * @param query the query of the search.
+#if(!$paginationNo)## A-1
+     * @param pageable the pagination information.
+#end## A-1
+     * @return the list of entities.
+     */
+#end## A
+#if($serviceImpl)## A
+    @Override
+#end## A
+#if($databaseTypeSql)## A
+    @Transactional(readOnly = true)
+#end## A
+    public #{if}(!$paginationNo)${pageOrFlux}<${instanceType}#{else}${listOrFlux}<${instanceType}#{end}> search(String query#{if}(!$paginationNo), Pageable pageable#{end}) {
+#if($paginationNo)## A-1
+        LOG.debug("Request to search ${entityClassPlural} for query {}", query);## 参数：viaService, fromResource
+#_partials_entity_search_stream_template(false false)
+#else## A-1
+        LOG.debug("Request to search for a page of ${entityClassPlural} for query {}", query);
+        return ${entityInstance}#{if}($searchEngineElasticsearch)Search#{end}Repository.search(query, pageable)#{if}(!$dtoMapstruct);#{else}
+            .map(${entityToDtoReference});#end
+#end## A-1
+    }
+#end## A
+#if($updatableEntity && !$dtoMapstruct && $anyFieldNotIdAndNotTransient)## A
+
+    private <T> void updateIfPresent(Consumer<T> setter, T value) {
+        if (value != null) {
+            setter.accept(value);
+        }
+    }
+#end## A
+}

@@ -1,0 +1,166 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${currentClass.packageName};
+
+import ${mainModelClass.qualifiedName};
+import ${repositoryClass.qualifiedName};
+
+#if(!$paginationNo)## A
+  #if(!$reactive)## A-1
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.elasticsearch.core.SearchHits;
+  #end## A-1
+import org.springframework.data.domain.Pageable;
+import java.util.List;
+import org.springframework.data.domain.PageRequest;
+
+#end## A
+#if($reactive)## A
+import org.springframework.data.elasticsearch.client.elc.ReactiveElasticsearchTemplate;
+#else## A
+import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
+#end## A
+import co.elastic.clients.elasticsearch._types.query_dsl.QueryStringQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.core.query.Query;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.repository.#{if}($reactive)Reactive#{end}ElasticsearchRepository;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+#if($reactive)## A
+import reactor.core.publisher.Flux;
+#else## A
+import java.util.stream.Stream;
+#end## A
+#if($primaryKey.typeUUID)## A
+
+import java.util.UUID;
+#end## A
+
+import static org.springframework.data.elasticsearch.client.elc.QueryBuilders.queryStringQuery;
+
+/**
+ * Spring Data Elasticsearch repository for the {@link ${persistClass}} entity.
+ */
+public interface ${currentClass.simpleName} extends #{if}($reactive)Reactive#{end}ElasticsearchRepository<${persistClass}, ${primaryKey.type}>, ${entityClass}SearchRepositoryInternal {
+}
+#if($reactive)## A
+
+interface ${entityClass}SearchRepositoryInternal {
+    Flux<${persistClass}> search(String query#{if}(!$paginationNo), Pageable pageable#{end});
+
+    Flux<${persistClass}> search(Query query);
+}
+
+class ${entityClass}SearchRepositoryInternalImpl implements ${entityClass}SearchRepositoryInternal {
+
+    private final ReactiveElasticsearchTemplate reactiveElasticsearchTemplate;
+
+    ${entityClass}SearchRepositoryInternalImpl(ReactiveElasticsearchTemplate reactiveElasticsearchTemplate) {
+        this.reactiveElasticsearchTemplate = reactiveElasticsearchTemplate;
+    }
+
+    @Override
+    public Flux<${persistClass}> search(String query#{if}(!$paginationNo), Pageable pageable#{end}) {
+        NativeQuery nativeQuery = new NativeQuery(QueryStringQuery.of(qs -> qs.query(query))._toQuery());
+  #if(!$paginationNo)## A-1
+        nativeQuery.setPageable(pageable);
+  #end## A-1
+        return search(nativeQuery);
+    }
+
+    @Override
+    public Flux<${persistClass}> search(Query query) {
+        return reactiveElasticsearchTemplate
+            .search(query, ${persistClass}.class)
+            .map(SearchHit::getContent);
+    }
+}
+#else## A
+
+interface ${entityClass}SearchRepositoryInternal {
+  #if($paginationNo)## A-1
+    Stream<${persistClass}> search(String query);
+
+    Stream<${persistClass}> search(Query query);
+  #else## A-1
+    Page<${persistClass}> search(String query, Pageable pageable);
+
+    Page<${persistClass}> search(Query query);
+  #end## A-1
+
+    @Async
+    void index(${persistClass} entity);
+
+    @Async
+    void deleteFromIndexById(${primaryKey.type} id);
+}
+
+class ${entityClass}SearchRepositoryInternalImpl implements ${entityClass}SearchRepositoryInternal {
+
+    private final ElasticsearchTemplate elasticsearchTemplate;
+    private final ${entityClass}Repository repository;
+
+    ${entityClass}SearchRepositoryInternalImpl(ElasticsearchTemplate elasticsearchTemplate, ${entityClass}Repository repository) {
+        this.elasticsearchTemplate = elasticsearchTemplate;
+        this.repository = repository;
+    }
+
+  #if($paginationNo)## A-1
+    @Override
+    public Stream<${persistClass}> search(String query) {
+        NativeQuery nativeQuery = new NativeQuery(QueryStringQuery.of(qs -> qs.query(query))._toQuery());
+        return search(nativeQuery);
+    }
+
+    @Override
+    public Stream<${persistClass}> search(Query query) {
+        return elasticsearchTemplate
+            .search(query, ${persistClass}.class)
+            .map(SearchHit::getContent)
+            .stream();
+    }
+  #else## A-1
+    @Override
+    public Page<${persistClass}> search(String query, Pageable pageable) {
+        NativeQuery nativeQuery = new NativeQuery(QueryStringQuery.of(qs -> qs.query(query))._toQuery());
+        return search(nativeQuery.setPageable(pageable));
+    }
+
+    @Override
+    public Page<${persistClass}> search(Query query) {
+        SearchHits<${persistClass}> searchHits = elasticsearchTemplate.search(query, ${persistClass}.class);
+        List<${persistClass}> hits = searchHits.map(SearchHit::getContent).stream().toList();
+        return new PageImpl<>(hits, query.getPageable(), searchHits.getTotalHits());
+    }
+  #end## A-1
+
+    @Override
+    public void index(${persistClass} entity) {
+        repository.find#{if}($implementsEagerLoadApis)OneWithEagerRelationships#{else}ById#{end}(entity.${primaryKey.propertySupplierName}()).ifPresent(elasticsearchTemplate::save);
+    }
+
+    @Override
+    public void deleteFromIndexById(${primaryKey.type} id) {
+        elasticsearchTemplate.delete(String.valueOf(id), ${persistClass}.class);
+    }
+}
+#end## A

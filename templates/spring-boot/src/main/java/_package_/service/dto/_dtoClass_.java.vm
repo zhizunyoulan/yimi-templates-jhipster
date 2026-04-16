@@ -1,0 +1,198 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+#set($anyDtoRelationshipsCollection = false)
+#foreach($relationship in $relationships)
+    #if($relationship.collection)
+        #set($anyDtoRelationshipsCollection = true)
+    #end
+#end
+package ${currentClass.packageName};
+
+import java.util.Objects;
+#if($entityApiDescription || $importApiModelProperty)## A
+import io.swagger.v3.oas.annotations.media.Schema;
+#end## A
+#if($anyFieldIsInstant)## A
+import java.time.Instant;
+#end## A
+#if($anyFieldIsLocalDate)## A
+import java.time.LocalDate;
+#end## A
+#if($anyFieldIsLocalTime)## A
+import java.time.LocalTime;
+#end## A
+#if($anyFieldIsZonedDateTime)## A
+import java.time.ZonedDateTime;
+#end## A
+#if($anyFieldIsDuration)## A
+import java.time.Duration;
+#end## A
+#if($anyPropertyHasValidation)## A
+import jakarta.validation.constraints.*;
+#end## A
+import java.io.Serializable;
+#if($anyFieldIsBigDecimal)## A
+import java.math.BigDecimal;
+#end## A
+#if($anyFieldIsBlobDerived && $databaseTypeCassandra)## A
+import java.nio.ByteBuffer;
+#end## A
+#if($anyDtoRelationshipsCollection)## A
+import java.util.HashSet;
+import java.util.Set;
+#end## A
+#if($anyFieldIsUUID)## A
+import java.util.UUID;
+#end## A
+#if($anyFieldIsBlobDerived && $databaseTypeSql)## A
+import jakarta.persistence.Lob;
+#end## A
+#foreach($enumField in $uniqueEnums)## A
+import ${entityAbsolutePackage}.domain.enumeration.${enumField.fieldType};
+#end## A
+#foreach ($importType in $currentClass.dynamicImports)## A
+import ${importType};
+#end## A
+#set($primaryKeyFields = [])
+#foreach($field in $currentModelClass.allFields)## A
+#if($field.primaryKey)## A-1
+#set($void = $primaryKeyFields.add($field))
+#end## A-1
+#end## A
+#set($restProperties = $currentModelClass.fields)
+
+#foreach($otherEntity in $otherEntities)## A
+#if($otherEntity.entityAbsolutePackage != ${currentClass.packageName})## A-1
+import ${otherEntity.className};
+#end## A-1
+#end## A
+
+/**
+ * A DTO for the {@link ${currentModelClass.qualifiedName}} entity.
+ */
+#if($entityApiDescription)## A
+@Schema(description = "${entityApiDescription}")
+#end## A
+@SuppressWarnings("common-java:DuplicatedBlocks")
+public class ${currentClass.simpleName} implements Serializable {
+
+#foreach($property in $restProperties)## A
+#set($property["propertyDtoJavaType"] = $myTool.getJavaTypeSimpleName($property.javaType, true))
+#set($property["propertyName"] = $property.property)
+#set($property["propertySupplierName"] = $myTool.getPropertyGetterName($property.property, $property.javaType))
+#set($property["propertyConsumerName"] = "set$myTool.toUpperCamelCase($property.property)")
+#if($property.label != $null)## A-1
+    /** ${property.label} */
+#end## A-1
+#if($property.nestInfo != $null)## A-1
+  #set($field = $property)## A-1-1
+  #set($relationship = $null)## A-1-1
+#else## A-1
+  #set($field = $null)## A-1-1
+  #set($relationship = $property)## A-1-1
+#end## A-1
+#set($required = $field && $field.fieldValidate && $field.fieldValidationRequired)## A-1
+#if($field && $field.fieldValidate)## A-1-2
+## 参数：field, reactive
+#_global_partials_entity_field_validators($field $reactive)
+#end## A-1-2
+#if($relationship && $relationship.relationshipRequired)## A-1-3
+    @NotNull
+#end## A-1-3
+#if($property.propertyApiDescription)## A-1-4
+    @Schema(description = "${property.propertyApiDescription}"#{if}($required), requiredMode = Schema.RequiredMode.REQUIRED#{end})
+#end## A-1-4
+#if($property.fieldTypeBytes && $databaseTypeSql)## A-1-5
+    @Lob
+#end## A-1-5
+    private ${property.propertyDtoJavaType} ${property.propertyName}#if($property.collection && $property.relationshipName) = new HashSet<>()#{end};
+
+#if($property.fieldWithContentType)## A-1-6
+    private String ${property.propertyName}ContentType;
+#end## A-1-6
+#end## A
+
+#foreach($property in $restProperties)## A
+    public ${property.propertyDtoJavaType} ${property.propertySupplierName}() {
+        return ${property.propertyName};
+    }
+
+    public void ${property.propertyConsumerName}(${property.propertyDtoJavaType} ${property.propertyName}) {
+        this.${property.propertyName} = ${property.propertyName};
+    }
+#if($property.fieldWithContentType)## A-1
+
+    public String ${property.propertySupplierName}ContentType() {
+        return ${property.propertyName}ContentType;
+    }
+
+    public void ${property.propertyConsumerName}ContentType(String ${property.propertyName}ContentType) {
+        this.${property.propertyName}ContentType = ${property.propertyName}ContentType;
+    }
+#end## A-1
+#end## A
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ${currentClass.simpleName})) {
+            return false;
+        }
+
+#if(!$embedded)## A
+        ${currentClass.simpleName} ${dtoInstance} = (${currentClass.simpleName}) o;
+        #set($nullCheck = "")## A-1
+        #foreach($field in $primaryKeyFields)## A-1-1
+            #if($foreach.index == 0)#set($nullCheck = "this.${field.property} == null")#else#set($nullCheck = $nullCheck + " && this.${field.property} == null")#end
+        #end## A-1-1
+        if ($nullCheck) {
+            return false;
+        }
+        #set($eqCheck = "")## A-1
+        #foreach($field in $primaryKeyFields)## A-1-1
+            #if($foreach.index == 0)#set($eqCheck = "Objects.equals(this.${field.property}, ${dtoInstance}.${field.property})")#else#set($eqCheck = $eqCheck + " &&\n            Objects.equals(this.${field.property}, ${dtoInstance}.${field.property})")#end
+        #end## A-1-1
+        return $eqCheck;
+#else## A
+        return false;
+#end## A
+    }
+
+    @Override
+    public int hashCode() {
+#if(!$embedded)## A
+        return Objects.hash(#foreach($field in $primaryKeyFields)#if($foreach.index > 0), #{end}this.${field.property}#{end});
+#else## A
+        return getClass().hashCode();
+#end## A
+    }
+
+    // prettier-ignore
+    @Override
+    public String toString() {
+        return "${currentClass.simpleName}{" +
+#foreach($property in $restProperties)## A
+#set($idx = $velocityCount - 1)## A-1
+#set($isQuoted = $property.fieldName && !$property.fieldTypeNumeric)## A-1
+            "#if($idx == 0)#{else}, #{end}${property.propertyName}=#{if}($isQuoted)'#{end}" + ${property.propertySupplierName}() #{if}($isQuoted)+ "'" #{end}+
+#end## A
+            "}";
+    }
+}

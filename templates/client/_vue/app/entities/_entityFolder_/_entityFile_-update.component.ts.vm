@@ -1,216 +1,260 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
 import { computed, defineComponent, inject, ref, type Ref } from 'vue';
-<%_ if (enableTranslation) { _%>
+#if($enableTranslation)## A
 import { useI18n } from 'vue-i18n';
-<%_ } _%>
+#end## A
 import { useRoute, useRouter } from 'vue-router';
 import { useVuelidate } from '@vuelidate/core'
 
-<%_ if (anyFieldIsBlobDerived) { _%>
+#if($anyFieldIsBlobDerived)## A
 import useDataUtils from '@/shared/data/data-utils.service';
-<%_ } _%>
-import { useValidation<% if (anyFieldIsTimeDerived) { %>, useDateFormat<% } %> } from '@/shared/composables';
+#end## A
+import { useValidation#{if}($anyFieldIsTimeDerived), useDateFormat#{end} } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
-<%_
-  const allRelationshipsThatNeedSelectOptions = Object
-    .values(relationshipsByOtherEntity)
-    .map(relationships => relationships.filter(rel => rel.persistableRelationship))
-    .filter(relationships => relationships.length > 0);
-  const relationshipsContainManyToOne = relationships.some(rel => !rel.otherEntityIsEmbedded && rel.collection && rel.persistableRelationship);
-_%>
+## #set($allRelationshipsThatNeedSelectOptions = $object.values($relationshipsByOtherEntity).map(relationships => $relationships.stream().filter(rel => $rel.persistableRelationship).collect(Collectors.toList())).filter(relationships => $relationships.size() > 0))
+#set($allRelationshipsThatNeedSelectOptions = [])
+#foreach($relationshipsByOtherEntityValue in $relationshipsByOtherEntity)## A
+#set($allRelationshipsThatNeedSelectOptionsItem = [])
+#foreach($tempRelationship in $relationshipsByOtherEntityValue)## A-1
+#if($tempRelationship["persistableRelationship"])## A-1-1
+#set($void = $allRelationshipsThatNeedSelectOptionsItem.add($tempRelationship))
+#end## A-1-1
+#end## A-1
+#if($allRelationshipsThatNeedSelectOptionsItem.size() > 0)## A-2
+#set($void = $allRelationshipsThatNeedSelectOptions.add($allRelationshipsThatNeedSelectOptionsItem))
+#end## A-2
+#end## A
+## #set($relationshipsContainManyToOne = $relationships.stream().anyMatch(rel => !$rel.otherEntity.embedded && $rel.collection && $rel.persistableRelationship))
+#set($relationshipsContainManyToOne = false)
+#foreach($relationship in $relationships)
+#if($relationship.otherEntity.embedded && $relationship.collection && $relationship.persistableRelationship)
+#set($relationshipsContainManyToOne = true)
+#end
+#end
 
-<%_ for (const [relationship] of Object.values(allRelationshipsThatNeedSelectOptions)) { _%>
-  <%_ if (relationship.otherEntity.builtInUser) { _%>
+#foreach($relGroup in $allRelationshipsThatNeedSelectOptions)## A
+#set($relationship = $relGroup.get(0))
+#if($relationship.otherEntity.builtInUser)## A-1
 import UserService from '@/entities/user/user.service';
-  <%_ } else if (relationship.otherEntity.entityAngularName !== entityAngularName) { _%>
-import <%= relationship.otherEntity.entityAngularName %>Service from '@/entities/<%= relationship.otherEntity.entityClientRootFolder %><%= relationship.otherEntity.entityFolderName %>/<%= relationship.otherEntity.entityFileName %>.service';
-import { type I<%= relationship.otherEntity.entityAngularName %> } from '@/shared/model/<%= relationship.otherEntityModelName %>.model';
-  <%_ } _%>
-<%_ } _%>
-import { type I<%= entityAngularName %>, <%= entityAngularName %> } from '@/shared/model/<%= entityModelFileName %>.model';
-import <%= entityAngularName %>Service from './<%= entityFileName %>.service';
-<%_ const enumImports = this.generateEntityClientEnumImports(fields); _%>
-<%_ enumImports.forEach( (importedPath, importedType) => { _%>
-import { <%- importedType %> } from '<%- importedPath %>';
-<%_ }); _%>
+#elseif($relationship.otherEntity.entityAngularName != $entityAngularName)## A-1
+import ${relationship.otherEntity.entityAngularName}Service from '@/entities/${relationship.otherEntity.entityClientRootFolder}${relationship.otherEntity.entityFolderName}/${relationship.otherEntity.entityFileName}.service';
+import { type I${relationship.otherEntity.entityAngularName} } from '@/shared/model/${relationship.otherEntity.entityModelFileName}.model';
+#end## A-1
+#end## A
+import { type I${entityAngularName}, ${entityAngularName} } from '@/shared/model/${entityModelFileName}.model';
+import ${entityAngularName}Service from './${entityFileName}.service';
+## #set($enumImports = $generateEntityClientEnumImports($fields))
+#set($enumImports = {})
+#foreach($field in $fields)## A
+#if($field.enumType && $field.enumValues != $null && $field.enumValues.length > 0)## A-1
+#set($enumFileName = $field["enumFileName"])
+#set($fieldType = $myTool.getJavaTypeSimpleName($field.javaType, true))
+#set($importPath = "@/shared/model/enumerations/${enumFileName}.model")
+#set($enumImports[$fieldType] = $importPath)
+#end## A-1
+#end## A
+#foreach($enumImportEntry in $enumImports)## A
+import { ${enumImportEntry.key} } from '${enumImportEntry.value}';
+#end## A
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
-  name: '<%= entityAngularName %>Update',
+  name: '${entityAngularName}Update',
   setup() {
-    const <%= entityInstance %>Service = inject('<%= entityInstance %>Service', () => new <%= entityAngularName %>Service());
+    const ${entityInstance}Service = inject('${entityInstance}Service', () => new ${entityAngularName}Service());
     const alertService = inject('alertService', () => useAlertService(), true);
 
-    const <%= entityInstance %>: Ref<I<%= entityAngularName %>> = ref(new <%= entityAngularName %>());
-<%_ for (const [relationship] of Object.values(allRelationshipsThatNeedSelectOptions)) { _%>
-  <%_ if (relationship.otherEntity.builtInUser) { _%>
+    const ${entityInstance}: Ref<I${entityAngularName}> = ref(new ${entityAngularName}());
+#foreach($relGroup in $allRelationshipsThatNeedSelectOptions)## A
+#set($relationship = $relGroup.get(0))
+#if($relationship.otherEntity.builtInUser)## A-1
     const userService = inject('userService', () => new UserService());
-    const <%= relationship.otherEntity.entityInstancePlural %>: Ref<Array<any>> = ref([]);
-  <%_ } else { _%>
-    <%_ if (relationship.otherEntity.entityAngularName !== entityAngularName) { %>
-    const <%= relationship.otherEntity.entityInstance %>Service = inject('<%= relationship.otherEntity.entityInstance %>Service', () => new <%= relationship.otherEntity.entityAngularName %>Service());
-    <%_ } %>
-    const <%= relationship.otherEntity.entityInstancePlural %>: Ref<I<%= relationship.otherEntity.entityAngularName %>[]> = ref([]);
-  <%_ } _%>
-<%_ } _%>
-    <%_ enumImports.forEach( (importedPath, importedType) => { _%>
-    const <%- this._.lowerFirst(importedType) %>Values: Ref<string[]> = ref(Object.keys(<%- importedType %>));
-    <%_ }); _%>
+    const ${relationship.otherEntity.entityInstancePlural}: Ref<Array<any>> = ref([]);
+#else## A-1
+#if($relationship.otherEntity.entityAngularName != $entityAngularName)## A-1-1
+    const ${relationship.otherEntity.entityInstance}Service = inject('${relationship.otherEntity.entityInstance}Service', () => new ${relationship.otherEntity.entityAngularName}Service());
+#end## A-1-1
+    const ${relationship.otherEntity.entityInstancePlural}: Ref<I${relationship.otherEntity.entityAngularName}[]> = ref([]);
+#end## A-1
+#end## A
+#foreach($entry in $enumImports.entrySet())## A
+    const ${_.lowerFirst($entry.key)}Values: Ref<string[]> = ref(Object.keys(${entry.key}));
+#end## A
     const isSaving = ref(false);
-    const currentLanguage = inject('currentLanguage', () => computed(() => navigator.language ?? '<%- nativeLanguage %>'), true);
+    const currentLanguage = inject('currentLanguage', () => computed(() => navigator.language ?? '${nativeLanguage}'), true);
 
     const route = useRoute();
     const router = useRouter();
 
     const previousState = () => router.go(-1);
 
-    const retrieve<%= entityAngularName %> = async <%= entityInstance %><%= primaryKey.nameCapitalized %> => {
+    const retrieve${entityAngularName} = async ${entityInstance}${primaryKey.nameCapitalized} => {
       try {
-        const res = await <%= entityInstance %>Service().find(<%= entityInstance %><%= primaryKey.nameCapitalized %>);
-<%_
-        for (field of fields.filter(field => !field.id)) {
-            const fieldName = field.fieldName;
-            const fieldType = field.fieldType;
-            if ([ 'Instant', 'ZonedDateTime' ].includes(fieldType)) {
-_%>
-        res.<%= fieldName %> = new Date(res.<%= fieldName %>);
-<%_ } } _%>
-        <%= entityInstance %>.value = res;
+        const res = await ${entityInstance}Service().find(${entityInstance}${primaryKey.nameCapitalized});
+#foreach($field in $fields)## A
+#if(!$field.primaryKey)## A-1
+#set($fieldName = $field.fieldName)
+#set($fieldType = $field.fieldType)
+#if($fieldType == "Instant" || $fieldType == "ZonedDateTime")## A-1-1
+        res.${fieldName} = new Date(res.${fieldName});
+#end## A-1-1
+#end## A-1
+#end## A
+        ${entityInstance}.value = res;
       } catch (error) {
         alertService.showHttpError(error.response);
       }
     };
 
-    if (route.params?.<%= entityInstance %>Id) {
-      retrieve<%= entityAngularName %>(route.params.<%= entityInstance %>Id);
+    if (route.params?.${entityInstance}Id) {
+      retrieve${entityAngularName}(route.params.${entityInstance}Id);
     }
-<%_ if (relationships.length > 0) { _%>
+#if($relationships.size() > 0)## A
 
     const initRelationships = () => {
-<%_ for (const [relationship] of Object.values(allRelationshipsThatNeedSelectOptions)) { _%>
-  <%_ if (relationship.otherEntity.builtInUser) { _%>
+#foreach($relGroup in $allRelationshipsThatNeedSelectOptions)## A-1
+#set($relationship = $relGroup.get(0))
+#if($relationship.otherEntity.builtInUser)## A-1-1
       userService().retrieve().then((res) => {
-        <%= relationship.otherEntity.entityInstancePlural %>.value = res.data;
+        ${relationship.otherEntity.entityInstancePlural}.value = res.data;
       });
-  <%_ } else { _%>
-      <%= relationship.otherEntity.entityInstance %>Service().retrieve().then((res) => {
-        <%= relationship.otherEntity.entityInstancePlural %>.value = res.data;
+#else## A-1-1
+      ${relationship.otherEntity.entityInstance}Service().retrieve().then((res) => {
+        ${relationship.otherEntity.entityInstancePlural}.value = res.data;
       });
-  <%_ } _%>
-<%_ } _%>
+#end## A-1-1
+#end## A-1
     };
 
     initRelationships();
-<%_ } _%>
-<%_ if (anyFieldIsBlobDerived) { _%>
+#end## A
+#if($anyFieldIsBlobDerived)## A
 
     const dataUtils = useDataUtils();
-<%_ } _%>
+#end## A
 
-<%_ if (enableTranslation) { _%>
+#if($enableTranslation)## A
     const { t: t$ } = useI18n();
-<%_ } _%>
+#end## A
     const validations = useValidation();
     const validationRules = {
-<%_ for (field of fields.filter(field => !field.id)) { _%>
-      <%= field.fieldName %>:  {
-  <%_ if (field.fieldValidate) { _%>
-    <%_ if (field.fieldValidationRequired) { _%>
+#foreach($field in $fields)## A
+#if(!$field.primaryKey)## A-1
+      $emptyStr${field.fieldName}:  {
+#if($field.fieldValidate)## A-1-1
+#if($field.fieldValidationRequired)## A-1-1-1
         required: validations.required(t$('entity.validation.required').toString()),
-    <%_ } _%>
-    <%_ if (field.fieldValidationMinLength) { _%>
-        minLength: validations.minLength(t$('entity.validation.minlength', { min: <%= field.fieldValidateRulesMinlength %> }).toString(), <%= field.fieldValidateRulesMinlength %>),
-    <%_ } _%>
-    <%_ if (field.fieldValidationMaxLength) { _%>
-        maxLength: validations.maxLength(t$('entity.validation.maxlength', { max: <%= field.fieldValidateRulesMaxlength %> }).toString(), <%= field.fieldValidateRulesMaxlength %>),
-    <%_ } _%>
-    <%_ if (field.fieldTypeInteger || field.fieldTypeLong) { _%>
+#end## A-1-1-1
+#if($field.fieldValidationMinLength)## A-1-1-2
+        minLength: validations.minLength(t$('entity.validation.minlength', { min: ${field.fieldValidateRulesMinlength} }).toString(), ${field.fieldValidateRulesMinlength}),
+#end## A-1-1-2
+#if($field.fieldValidationMaxLength)## A-1-1-3
+        maxLength: validations.maxLength(t$('entity.validation.maxlength', { max: ${field.fieldValidateRulesMaxlength} }).toString(), ${field.fieldValidateRulesMaxlength}),
+#end## A-1-1-3
+#if($field.fieldTypeInteger || $field.fieldTypeLong)## A-1-1-4
         integer: validations.integer(t$('entity.validation.number').toString()),
-    <%_ } _%>
-    <%_ if (field.fieldValidationMin) { _%>
-        min: validations.minValue(t$('entity.validation.min', { min: <%= field.fieldValidateRulesMin %> }).toString(), <%= field.fieldValidateRulesMin %>),
-    <%_ } _%>
-    <%_ if (field.fieldValidationMax) { _%>
-        max: validations.maxValue(t$('entity.validation.max', { max: <%= field.fieldValidateRulesMax %> }).toString(), <%= field.fieldValidateRulesMax %>),
-    <%_ } _%>
-  <%_ } _%>
+#end## A-1-1-4
+#if($field.fieldValidationMin)## A-1-1-5
+        min: validations.minValue(t$('entity.validation.min', { min: ${field.fieldValidateRulesMin} }).toString(), ${field.fieldValidateRulesMin}),
+#end## A-1-1-5
+#if($field.fieldValidationMax)## A-1-1-6
+        max: validations.maxValue(t$('entity.validation.max', { max: ${field.fieldValidateRulesMax} }).toString(), ${field.fieldValidateRulesMax}),
+#end## A-1-1-6
+#end## A-1-1
       },
-<%_ } _%>
-<%_ for (relationship of relationships) { _%>
-      <%= relationship.collection ? relationship.relationshipFieldNamePlural : relationship.relationshipFieldName %>: {
-  <%_ if (relationship.relationshipValidate && relationship.relationshipRequired) { _%>
+#end## A-1
+#end## A
+#foreach($relationship in $relationships)## A
+      $emptyStr#{if}($relationship.collection)${relationship.relationshipFieldNamePlural}#{else}${relationship.relationshipFieldName}#{end}: {
+#if($relationship.relationshipValidate && $relationship.relationshipRequired)## A-1
         required: validations.required(t$('entity.validation.required').toString()),
-  <%_ } _%>
+#end## A-1
       },
-<%_ } _%>
+#end## A
     };
-    const v$ = useVuelidate(validationRules, <%= entityInstance %> as any);
+    const v$ = useVuelidate(validationRules, ${entityInstance} as any);
     v$.value.$validate();
 
     return {
-      <%= entityInstance %>Service,
+      ${entityInstance}Service,
       alertService,
-      <%= entityInstance %>,
+      ${entityInstance},
       previousState,
-    <%_ enumImports.forEach( (importedPath, importedType) => { _%>
-      <%- this._.lowerFirst(importedType) %>Values,
-    <%_ }); _%>
+#foreach($entry in $enumImports.entrySet())## A
+      ${_.lowerFirst($entry.key)}Values,
+#end## A
       isSaving,
       currentLanguage,
-<%_ for (const [relationship] of Object.values(allRelationshipsThatNeedSelectOptions)) { _%>
-      <%= relationship.otherEntity.entityInstancePlural %>,
-<%_ } _%>
-<%_ if (anyFieldIsBlobDerived) { _%>
+#foreach($relGroup in $allRelationshipsThatNeedSelectOptions)## A
+#set($relationship = $relGroup.get(0))
+      ${relationship.otherEntity.entityInstancePlural},
+#end## A
+#if($anyFieldIsBlobDerived)## A
       ...dataUtils,
-<%_ } _%>
+#end## A
       v$,
-<%_ if (anyFieldIsTimeDerived) { _%>
-      ...useDateFormat({ entityRef: <%= entityInstance %> }),
-<%_ } _%>
-<%_ if (enableTranslation) { _%>
+#if($anyFieldIsTimeDerived)## A
+      ...useDateFormat({ entityRef: ${entityInstance} }),
+#end## A
+#if($enableTranslation)## A
       t$,
-<%_ } _%>
+#end## A
     };
   },
   created(): void {
-    <%_ if (relationshipsContainManyToOne) { _%>
-    <%_
-      for (relationship of relationships) {
-      if (relationship.collection && relationship.persistableRelationship) {
-      const relationshipFieldNamePlural = relationship.relationshipFieldNamePlural;
-    _%>
-    this.<%= entityInstance %>.<%= relationshipFieldNamePlural %> = [];
-    <%_ } } _%>
-    <%_ } _%>
+#if($relationshipsContainManyToOne)## A
+#foreach($relationship in $relationships)## A-1
+#if($relationship.collection && $relationship.persistableRelationship)## A-1-1
+#set($relationshipFieldNamePlural = $relationship.relationshipFieldNamePlural)
+    this.${entityInstance}.${relationshipFieldNamePlural} = [];
+#end## A-1-1
+#end## A-1
+#end## A
   },
   methods: {
     save() : void {
       this.isSaving = true;
-    if (this.<%= entityInstance %>.<%= primaryKey.name %>) {
-        this.<%= entityInstance %>Service().update(this.<%= entityInstance %>).then((param) => {
+      if (this.${entityInstance}.${primaryKey.name}) {
+        this.${entityInstance}Service().update(this.${entityInstance}).then((param) => {
           this.isSaving = false;
           this.previousState();
           this.alertService.showInfo(
-<%_ if (enableTranslation) { _%>
-            this.t$('<%= i18nAlertHeaderPrefix %>.updated', { 'param' : param.<%= primaryKey.name %> })
-<%_ } else {_%>
-            'A <%= entityAngularName %> is updated with identifier ' + param.<%= primaryKey.name %>
-<%_ } _%>
+#if($enableTranslation)## A
+            this.t$('${i18nAlertHeaderPrefix}.updated', { 'param' : param.${primaryKey.name} })
+#else## A
+            'A ${entityAngularName} is updated with identifier ' + param.${primaryKey.name}
+#end## A
           );
         }).catch(error => {
             this.isSaving = false;
             this.alertService.showHttpError(error.response);
         });
       } else {
-        this.<%= entityInstance %>Service().create(this.<%= entityInstance %>).then((param) => {
+        this.${entityInstance}Service().create(this.${entityInstance}).then((param) => {
           this.isSaving = false;
           this.previousState();
           this.alertService.showSuccess(
-<%_ if (enableTranslation) { _%>
-            this.t$('<%= i18nAlertHeaderPrefix %>.created', { param: param.<%= primaryKey.name %> }).toString()
-<%_ } else {_%>
-            'A <%= entityAngularName %> is created with identifier ' + param.<%= primaryKey.name %>
-<%_ } _%>
+#if($enableTranslation)## A
+            this.t$('${i18nAlertHeaderPrefix}.created', { param: param.${primaryKey.name} }).toString()
+#else## A
+            'A ${entityAngularName} is created with identifier ' + param.${primaryKey.name}
+#end## A
           );
         }).catch(error => {
             this.isSaving = false;
@@ -219,29 +263,28 @@ _%>
       }
     },
 
-  <%_ if (anyFieldIsBlobDerived && anyFieldHasImageContentType) { _%>
+#if($anyFieldIsBlobDerived && $anyFieldHasImageContentType)## A
     clearInputImage(field, fieldContentType, idInput) : void {
-      if (this.<%= entityInstance %> && field && fieldContentType) {
-        if (Object.prototype.hasOwnProperty.call(this.<%= entityInstance %>, field)) {
-          this.<%= entityInstance %>[field] = null;
+      if (this.${entityInstance} && field && fieldContentType) {
+        if (Object.prototype.hasOwnProperty.call(this.${entityInstance}, field)) {
+          this.${entityInstance}[field] = null;
         }
-        if (Object.prototype.hasOwnProperty.call(this.<%= entityInstance %>, fieldContentType)) {
-          this.<%= entityInstance %>[fieldContentType] = null;
+        if (Object.prototype.hasOwnProperty.call(this.${entityInstance}, fieldContentType)) {
+          this.${entityInstance}[fieldContentType] = null;
         }
         if (idInput) {
-          (<any>this).$refs[idInput] = null;
+          (<any>this).${D}refs[idInput] = null;
         }
       }
     },
-
-  <%_ } _%>
-  <%_ if (relationshipsContainManyToOne) { _%>
+#end## A
+#if($relationshipsContainManyToOne)## A
     getSelected(selectedVals, option, pkField = 'id') : any {
       if (selectedVals) {
         return selectedVals.find(value => option[pkField] === value[pkField]) ?? option;
       }
       return option;
     },
-  <%_ } _%>
+#end## A
   },
 });

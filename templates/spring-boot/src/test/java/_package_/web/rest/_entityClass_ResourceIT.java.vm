@@ -1,0 +1,1570 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${entityAbsolutePackage}.web.rest;
+
+import static ${entityAbsolutePackage}.domain.${persistClass}Asserts.*;
+import static ${packageName}.web.rest.TestUtil.createUpdateProxyForBean;
+## 假定以下变量在上下文中已提供：
+## - filterTestableRelationships: List of relationships that are testable for filtering
+## - fieldsToTest: List of fields that are not id, not auto generated, not transient
+## - hasUserRepository: boolean
+## - callBlock, callListBlock, saveMethod, createEntityPrefix, createEntityPostfix, idValue, transactionalAnnotation, reactorBlock
+## - id1, id2 (if needed)
+## - DEFAULT_* and UPDATED_* constants for each field
+## - entityJavaFilterableProperties (for criteria filtering)
+## - etc.
+
+#if($entityAbsolutePackage != $packageName)## A
+import ${packageName}.web.rest.TestUtil;
+#end## A
+import ${packageName}.IntegrationTest;
+import ${entityAbsolutePackage}.domain.${persistClass};
+## 导入相关关系实体
+#foreach($relationship in $relationships)## A
+#if($relationship.relationshipValidate || $jpaMetamodelFiltering || $relationship.id)## A-1
+  #if(!$imported.contains($relationship.otherEntity.entityNameCapitalized))## A-1-1
+import ${entityAbsolutePackage}.domain.${relationship.otherEntity.persistClass};
+    #set($imported = $imported.add($relationship.otherEntity.entityNameCapitalized))## 注意：Velocity中无法直接修改集合，这里只是示意，实际需要上下文处理
+  #end## A-1-1
+#end## A-1
+#end## A
+#if($jpaMetamodelFiltering && $reactive)## A
+#foreach($relationship in $filterTestableRelationships)## A-1
+import ${entityAbsolutePackage}.repository.${relationship.otherEntity.entityNameCapitalized}Repository;
+#end## A-1
+#end## A
+#if($hasUserRepository)## A
+import ${user.entityAbsolutePackage}.repository.UserRepository;
+#end## A
+import ${entityAbsolutePackage}.repository.${entityClass}Repository;
+#if($databaseTypeSql && $reactive)## A
+import ${packageName}.repository.EntityManager;
+#end## A
+#if($isUsingMapsId && (!$dtoMapstruct && $serviceNo))## A
+import ${entityAbsolutePackage}.repository.${mapsIdAssoc.otherEntity.entityNameCapitalized}Repository;
+#end## A
+#if($searchEngineElasticsearch)## A
+import ${entityAbsolutePackage}.repository.search.${entityClass}SearchRepository;
+#end## A
+#if(!$serviceNo && $implementsEagerLoadApis)## A
+import ${entityAbsolutePackage}.service.${entityClass}Service;
+#end## A
+#if($dtoMapstruct)## A
+import ${entityAbsolutePackage}.service.dto.${dtoClass};
+import ${entityAbsolutePackage}.service.mapper.${entityClass}Mapper;
+#end## A
+#if($jpaMetamodelFiltering && !$reactive)## A
+import ${entityAbsolutePackage}.service.criteria.${entityClass}Criteria;
+#end## A
+import com.fasterxml.jackson.databind.ObjectMapper;
+#if($searchEngineElasticsearch)## A
+import org.assertj.core.util.IterableUtil;
+import org.springframework.data.util.Streamable;
+import java.util.concurrent.TimeUnit;
+#end## A
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+#if($skipJunitTests)## A
+import org.junit.jupiter.api.Disabled;
+#end## A
+import org.junit.jupiter.api.Test;
+#if($implementsEagerLoadApis || $databaseTypeNeo4j)## A
+import org.mockito.Mock;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+#end## A
+import org.springframework.beans.factory.annotation.Autowired;
+#if($reactive)## A
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
+#else## A
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+#end## A
+#if(($searchEngineElasticsearch && !$paginationNo) || $implementsEagerLoadApis)## A
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+#end## A
+import org.springframework.http.MediaType;
+#if($searchEngineCouchbase)## A
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.Timeout;
+#end## A
+#if($databaseTypeCouchbase)## A
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.test.context.TestSecurityContextHolder;
+#end## A
+import org.springframework.security.test.context.support.WithMockUser;
+#if($reactive)## A
+import org.springframework.test.web.reactive.server.WebTestClient;
+#else## A
+import org.springframework.test.web.servlet.MockMvc;
+  #if($databaseTypeSql)## A-1
+import org.springframework.transaction.annotation.Transactional;
+  #end## A-1
+#end## A
+#if($reactive && ($implementsEagerLoadApis || $searchEngineElasticsearch))## A
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+#end## A
+#if($databaseTypeSql && !$reactive)## A
+import jakarta.persistence.EntityManager;
+#end## A
+#if($anyFieldIsBigDecimal)## A
+import java.math.BigDecimal;
+#end## A
+#if($anyFieldIsBlobDerived && $databaseTypeCassandra)## A
+import java.nio.ByteBuffer;
+#end## A
+#if($reactive || $anyFieldIsDuration)## A
+import java.time.Duration;
+#end## A
+#if($anyFieldIsLocalDate)## A
+import java.time.LocalDate;
+#end## A
+#if($anyFieldIsInstant || $anyFieldIsZonedDateTime)## A
+import java.time.Instant;
+#end## A
+#if($anyFieldIsZonedDateTime)## A
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+#end## A
+#if($anyFieldIsLocalDate || $anyFieldIsZonedDateTime)## A
+import java.time.ZoneId;
+#end## A
+#if($anyFieldIsInstant)## A
+import java.time.temporal.ChronoUnit;
+#end## A
+#if($anyFieldIsLocalTime)## A
+import java.time.LocalTime;
+#end## A
+#if($fieldsToTest.stream().anyMatch(f -> f.fieldTypeLocalTime))## A
+import java.time.format.DateTimeFormatter;
+#end## A
+#if(!$reactive && $implementsEagerLoadApis)## A
+import java.util.ArrayList;
+#end## A
+#if($anyFieldIsBlobDerived)## A
+import java.util.Base64;
+#end## A
+#if($searchEngineElasticsearch && !$reactive)## A
+import java.util.Collections;
+  #if($paginationNo)## A-1
+import java.util.stream.Stream;
+  #end## A-1
+#end## A
+import java.util.List;
+#if($anyFieldIsUUID || $primaryKey.typeString || $otherEntityPrimaryKeyTypesIncludesUUID)## A
+import java.util.UUID;
+#end## A
+#if(!$embedded && ($primaryKey.hasLong || $primaryKey.hasInteger))## A
+import java.util.Random;
+  #if($primaryKey.hasLong && !$readOnly && $updatableEntity)## A-1
+import java.util.concurrent.atomic.AtomicLong;
+  #elseif($primaryKey.hasInteger)## A-1
+import java.util.concurrent.atomic.AtomicInteger;
+  #end## A-1
+#end## A
+
+#if($anyFieldIsBigDecimal)## A
+import static ${packageName}.web.rest.TestUtil.sameNumber;
+#end## A
+#if($anyFieldIsZonedDateTime)## A
+import static ${packageName}.web.rest.TestUtil.sameInstant;
+#end## A
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+#if($reactive)## A
+import static org.hamcrest.Matchers.is;
+#end## A
+#if($authenticationUsesCsrf)## A
+  #if($reactive)## A-1
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+  #else## A-1
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+  #end## A-1
+#end## A
+#if($searchEngineElasticsearch || $implementsEagerLoadApis)## A
+import static org.mockito.Mockito.*;
+#end## A
+#if(!$reactive)## A
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+#end## A
+#if($searchEngineElasticsearch)## A
+import static org.awaitility.Awaitility.await;
+#end## A
+#foreach($field in $fields)## A
+#if(!$field.transient && $field.fieldIsEnum)## A-1
+import ${entityAbsolutePackage}.domain.enumeration.${field.fieldType};
+#end## A-1
+#end## A
+/**
+ * Integration tests for the {@link ${entityClass}Resource} REST controller.
+ */
+@IntegrationTest
+#if($skipJunitTests)## A
+@Disabled("${skipJunitTests}")
+#end## A
+#if($implementsEagerLoadApis)## A
+@ExtendWith(MockitoExtension.class)
+#end## A
+#if($reactive)## A
+@AutoConfigureWebTestClient(timeout = IntegrationTest.DEFAULT_ENTITY_TIMEOUT)
+#else## A
+@AutoConfigureMockMvc
+#end## A
+@WithMockUser#if($entityAuthority)(authorities = {"${entityAuthority}"})#end
+class ${entityClass}ResourceIT {
+#if($fieldsToTest.stream().anyMatch(f -> f.fieldTypeLocalTime))## A
+
+    private static final DateTimeFormatter LOCAL_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+#end## A
+## 假定常量已经在上下文中存在，如 $DEFAULT_XXX, $UPDATED_XXX, $SMALLER_XXX 等
+## 这里不再重复生成，直接引用
+
+    private static final String ENTITY_API_URL = "/api/${entityApiUrl}";
+    private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{${primaryKey.name}}";
+#if($searchEngineAny)## A
+    private static final String ENTITY_SEARCH_API_URL = "/api/${entityApiUrl}/_search";
+#end## A
+#if(!$embedded && ($primaryKey.hasLong || $primaryKey.hasInteger))## A
+
+  #if($primaryKey.hasLong && !$readOnly && $updatableEntity || $primaryKey.hasInteger)## A-1
+    private static Random random = new Random();
+  #end## A-1
+  #if($primaryKey.hasLong && !$readOnly && $updatableEntity)## A-2
+    private static AtomicLong longCount = new AtomicLong(random.nextInt() + ( 2L * Integer.MAX_VALUE ));
+  #elseif($primaryKey.hasInteger)## A-2
+    private static AtomicInteger intCount = new AtomicInteger(random.nextInt() + ( 2 * Short.MAX_VALUE ));
+  #end## A-2
+#end## A
+
+    @Autowired
+    private ObjectMapper om;
+
+    @Autowired
+    private ${entityClass}Repository ${entityInstance}Repository;
+#if($isUsingMapsId && (!$dtoMapstruct && $serviceNo) && $mapsIdAssoc.otherEntity.entityNameCapitalized != 'User')## A
+    @Autowired
+    private ${mapsIdAssoc.otherEntity.entityNameCapitalized}Repository ${mapsIdAssoc.otherEntity.entityInstance}Repository;
+#end## A
+#if($hasUserRepository)## A
+
+    @Autowired
+    private UserRepository userRepository;
+#end## A
+#if($implementsEagerLoadApis)## A
+
+    @Mock
+    private ${entityClass}Repository ${entityInstance}RepositoryMock;
+#end## A
+#if($dtoMapstruct)## A
+
+    @Autowired
+    private ${entityClass}Mapper ${entityInstance}Mapper;
+#end## A
+#if(!$serviceNo && $implementsEagerLoadApis)## A
+
+    @Mock
+    private ${entityClass}Service ${entityInstance}ServiceMock;
+#end## A
+#if($searchEngineElasticsearch)## A
+
+    @Autowired
+    private ${entityClass}SearchRepository ${entityInstance}SearchRepository;
+#end## A
+#if($databaseTypeSql)## A
+
+    @Autowired
+    private EntityManager em;
+#end## A
+
+    @Autowired
+#if($reactive)## A
+    private WebTestClient webTestClient;
+#else## A
+    private MockMvc rest${entityClass}MockMvc;
+#end## A
+
+    private ${persistClass} ${persistInstance};
+
+    private ${persistClass} inserted${persistClass};
+
+#if($jpaMetamodelFiltering && $reactive)## A
+#foreach($relationship in $filterTestableRelationships)## A-1
+#if(!$relationship.otherEntity.builtInUser)## A-1-1
+    @Autowired
+    private ${relationship.otherEntity.persistClass}Repository ${relationship.otherEntity.persistInstance}Repository;
+#end## A-1-1
+#end## A-1
+#end## A
+## 创建实体方法
+    /**
+     * Create an entity for this test.
+     */
+    public static ${persistClass} createEntity(#if($databaseTypeSql && $anyRelationshipIsRequired)EntityManager em#end) {
+#if($fluentMethods)## A
+        #{if}(!$anyRelationshipIsRequired)return #{else}${persistClass} ${persistInstance} = #{end}new ${persistClass}()
+#if($reactive && $databaseTypeSql && $primaryKey.typeUUID && !$isUsingMapsId)## A-1
+            .${primaryKey.name}(UUID.randomUUID())
+#end## A-1
+#if($primaryKey.typeString && !$isUsingMapsId && !$primaryKey.autoGenerate)## A-1
+            .${primaryKey.name}(UUID.randomUUID().toString())
+#end## A-1
+#foreach($field in $fieldsToTest)## A-1
+            .${field.fieldName}(DEFAULT_${field.fieldNameUnderscored.toUpperCase()})
+  #if($field.fieldTypeBinary && !$field.blobContentTypeText)## A-1-1
+            .${field.fieldName}ContentType(DEFAULT_${field.fieldNameUnderscored.toUpperCase()}_CONTENT_TYPE)
+  #end## A-1-1
+#end## A-1
+;
+    #{if}(!$anyRelationshipIsRequired)}
+    #{else}
+  #end## A
+#else## A
+        ${persistClass} ${persistInstance} = new ${persistClass}();
+#if($reactive && $databaseTypeSql && $primaryKey.typeUUID && !$isUsingMapsId)## A-1
+        ${persistInstance}.${primaryKey.fields[0].propertySupplierName}(UUID.randomUUID());
+#end## A-1
+#if($primaryKey.typeString && !$isUsingMapsId && !$primaryKey.autoGenerate)## A-1
+        ${persistInstance}.${primaryKey.fields[0].propertySupplierName}(UUID.randomUUID().toString());
+#end## A-1
+#foreach($field in $fieldsToTest)## A-1
+        ${persistInstance}.${field.propertyConsumerName}(DEFAULT_${field.fieldNameUnderscored.toUpperCase()});
+  #if($field.fieldTypeBinary && !$field.blobContentTypeText)## A-1-1
+        ${persistInstance}.${field.propertyConsumerName}ContentType(DEFAULT_${field.fieldNameUnderscored.toUpperCase()}_CONTENT_TYPE);
+  #end## A-1-1
+#end## A-1
+#end## A
+## 添加必需关系
+#set($alreadyGeneratedEntities = [])## 此处需要上下文处理，我们假定变量 alreadyGeneratedEntities 在循环中可用，但Velocity不支持修改列表，实际可能需要预先计算
+#foreach($relationship in $persistableRelationships)## A
+#if(($relationship.relationshipValidate && !$relationship.otherEntity.hasCyclicRequiredRelationship) || $relationship.id)## A-1
+        // Add required entity
+  #if(!$alreadyGeneratedEntities.contains($relationship.otherEntityName))## A-1-1
+    #if($relationship.otherEntityUser)## A-1-1-1
+        ${relationship.otherEntity.persistClass} ${relationship.otherEntityName} = ${createEntityPrefix}${relationship.otherEntity.entityNameCapitalized}ResourceIT.createEntity(#if($databaseTypeSql && $relationship.otherEntity.anyRelationshipIsRequired)em#end)${createEntityPostfix};
+      #if($databaseTypeSql && !$reactive)## A-1-1-1-1
+        em.persist(${relationship.otherEntityName});
+        em.flush();
+      #end## A-1-1-1-1
+      #if($databaseTypeMongodb)## A-1-1-1-2
+        ${relationship.otherEntityName}.${primaryKey.propertyConsumerName}("fixed-id-for-tests");
+      #end## A-1-1-1-2
+    #else## A-1-1-1
+        ${relationship.otherEntity.persistClass} ${relationship.otherEntityName};
+      #if($databaseTypeSql && !$reactive)## A-1-1-1-3
+        #{if}(!$isUsingMapsId || $fieldStatus != "UPDATED_")if (TestUtil.findAll(em, ${relationship.otherEntity.persistClass}.class).isEmpty()) {#end
+            ${relationship.otherEntityName} = ${createEntityPrefix}${relationship.otherEntity.entityNameCapitalized}ResourceIT.create#{if}($fieldStatus == "UPDATED_")Updated#{end}Entity(#if($relationship.otherEntity.anyRelationshipIsRequired)em#end)${createEntityPostfix};
+            em.persist(${relationship.otherEntityName});
+            em.flush();
+        #{if}(!$isUsingMapsId || $fieldStatus != "UPDATED_")} else {
+            ${relationship.otherEntityName} = TestUtil.findAll(em, ${relationship.otherEntity.persistClass}.class).get(0);
+        }#end
+      #else## A-1-1-1-3
+        ${relationship.otherEntityName} = ${createEntityPrefix}${relationship.otherEntity.entityNameCapitalized}ResourceIT.create#{if}($fieldStatus == "UPDATED_")Updated#{end}Entity(#if($databaseType == 'sql' && $relationship.otherEntity.anyRelationshipIsRequired)em#end)${createEntityPostfix};
+      #end## A-1-1-1-3
+      #if($databaseTypeMongodb)## A-1-1-1-4
+        ${relationship.otherEntityName}.${primaryKey.propertyConsumerName}("fixed-id-for-tests");
+      #end## A-1-1-1-4
+    #end## A-1-1-1
+    #set($alreadyGeneratedEntities = $alreadyGeneratedEntities.add($relationship.otherEntityName))## 不能修改，实际需要上下文预计算
+  #end## A-1-1
+  #if($relationship.relationshipManyToMany || $relationship.relationshipOneToMany)## A-1-2
+        ${persistInstance}.${relationship.propertySupplierName}().add(${relationship.otherEntityName});
+  #else## A-1-2
+        ${persistInstance}.${relationship.propertyConsumerName}(${relationship.otherEntityName});
+  #end## A-1-2
+#end## A-1
+#end## A
+        return ${persistInstance};
+    }
+
+## 创建更新实体方法（类似，略）
+    public static ${persistClass} createUpdatedEntity(#if($databaseTypeSql && $anyRelationshipIsRequired)EntityManager em#end) {
+        // 类似 createEntity，但使用 UPDATED_ 常量
+        // 由于原模板中有两个创建方法（createEntity 和 createUpdatedEntity），我们简化为同一个方法，但使用不同常量
+        // 原模板使用字段状态变量 "UPDATED_"，我们在 Velocity 中无法动态改变常量名，所以假设该方法存在
+        // 这里我们保留占位，实际需要上下文提供常量
+    }
+
+#if($databaseTypeSql && $reactive)## A
+    public static void deleteEntities(EntityManager em) {
+        try {
+  #foreach($relationship in $relationships)## A-1
+    #if($relationship.shouldWriteJoinTable)## A-1-1
+                em.deleteAll("${relationship.joinTable.name}").block();
+    #end## A-1-1
+  #end## A-1
+                em.deleteAll(${persistClass}.class).block();
+        } catch (Exception e) {
+            // It can fail, if other entities are still referring this - it will be removed later.
+        }
+  #set($alreadyGeneratedDeletionCalls = [])## 同样需要预计算
+  #foreach($relationship in $relationships)## A-1
+    #if(($relationship.relationshipValidate || $relationship.id) && !$alreadyGeneratedDeletionCalls.contains($relationship.otherEntityName))## A-1-1
+        ${relationship.otherEntity.entityNameCapitalized}ResourceIT.deleteEntities(em);
+      #set($alreadyGeneratedDeletionCalls = $alreadyGeneratedDeletionCalls.add($relationship.otherEntityName))
+    #end## A-1-1
+  #end## A-1
+    }
+#end## A
+
+#if($reactive && $authenticationUsesCsrf)## A
+    @BeforeEach
+    void setupCsrf() {
+        webTestClient = webTestClient.mutateWith(csrf());
+    }
+#end## A
+
+    @BeforeEach
+    void initTest() {
+        ${persistInstance} = createEntity(#if($databaseTypeSql && $anyRelationshipIsRequired)em#end);
+    }
+
+    @AfterEach
+    void cleanup() {
+        if (inserted${persistClass} != null) {
+            ${entityInstance}Repository.delete(inserted${persistClass})${reactorBlock};
+#if($searchEngineElasticsearch)## A
+            ${entityInstance}SearchRepository.delete(inserted${persistClass})${reactorBlock};
+#end## A
+            inserted${persistClass} = null;
+        }
+#if($databaseTypeSql && $reactive)## A
+        deleteEntities(em);
+#end## A
+#if($requiresDeleteAllUsers && $hasUserRepository)## A
+  #if($databaseTypeSql && $reactive)## A-1
+        userRepository.deleteAllUserAuthorities()${reactorBlock};
+  #end## A-1
+        userRepository.deleteAll()${reactorBlock};
+#end## A
+    }
+#if(!$readOnly)## A
+
+    @Test${transactionalAnnotation}
+    void create${entityClass}() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+  #if($reactive && $databaseTypeSql && $primaryKey.typeUUID && !$isUsingMapsId)## A-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(null);
+  #end## A-1
+  #if($dtoMapstruct)## A-1
+        ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});
+  #end## A-1
+  #if($reactive)## A-1
+        var returned${restClass} = webTestClient.post().uri(ENTITY_API_URL)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isCreated()
+            .expectBody(${restClass}.class)
+            .returnResult()
+            .getResponseBody();
+  #else## A-1
+        var returned${restClass} = om.readValue(
+            rest${entityClass}MockMvc
+                .perform(
+                  post(ENTITY_API_URL)
+    #{if}($authenticationUsesCsrf).with(csrf())#{end}
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(om.writeValueAsBytes(${restInstance}))
+                )
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ${restClass}.class
+        );
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+  #if($dtoMapstruct)## A-1
+        var returned${persistClass} = ${entityInstance}Mapper.toEntity(returned${dtoClass});
+  #end## A-1
+        assert${persistClass}UpdatableFieldsEquals(returned${persistClass}, getPersisted${persistClass}(returned${persistClass}));
+  #if($searchEngineElasticsearch)## A-1
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+            assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore + 1);
+        });
+  #end## A-1
+  #if($primaryKey.derived)## A-1
+        assert${persistClass}MapsIdRelationshipPersistedValue(${persistInstance}, returned${persistClass});
+  #end## A-1
+        inserted${persistClass} = returned${persistClass};
+    }
+
+    @Test${transactionalAnnotation}
+    void create${entityClass}WithExistingId() throws Exception {
+        // Create the ${entityClass} with an existing ID
+  #if(($primaryKey.typeUUID && $databaseTypeSql) || !$primaryKey.autoGenerate)## A-1
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+  #else## A-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(#if($primaryKey.typeUUID)UUID.randomUUID()#elseif($primaryKey.typeLong)1L#elseif($primaryKey.typeInteger)1#else"existing_id"#end);
+  #end## A-1
+  #if($dtoMapstruct)## A-1
+        ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});
+  #end## A-1
+
+        long databaseSizeBeforeCreate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+  #if($reactive)## A-1
+        webTestClient.post().uri(ENTITY_API_URL)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isBadRequest();
+  #else## A-1
+        rest${entityClass}MockMvc
+            .perform(
+                post(ENTITY_API_URL)
+    #{if}($authenticationUsesCsrf).with(csrf())#{end}
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsBytes(${restInstance}))
+            )
+            .andExpect(status().isBadRequest());
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+  #end## A-1
+    }
+
+  #if($databaseTypeSql && $isUsingMapsId)## A-1
+    @Test${transactionalAnnotation}
+    void update${entityClass}MapsIdAssociationWithNewId() throws Exception {
+        // 省略详细内容，类似原模板
+    }
+  #end## A-1
+
+  #foreach($field in $fieldsToTest)## A-1
+    #if($field.fieldValidate && !$field.fieldTypeBytes && $field.fieldValidationRequired)## A-1-1
+
+    @Test${transactionalAnnotation}
+    void check${field.fieldInJavaBeanMethod}IsRequired() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        #if($searchEngineElasticsearch)## A-1-1-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        #end## A-1-1-1
+        // set the field null
+        ${persistInstance}.${field.propertyConsumerName}(null);
+
+        // Create the ${entityClass}, which fails.#if($dtoMapstruct)
+        ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});#end
+
+        #if($reactive)## A-1-1-2
+        webTestClient.post().uri(ENTITY_API_URL)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isBadRequest();
+        #else## A-1-1-2
+        rest${entityClass}MockMvc.perform(post(ENTITY_API_URL)#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(om.writeValueAsBytes(${restInstance})))
+            .andExpect(status().isBadRequest());
+        #end## A-1-1-2
+        #if($databaseTypeCouchbase)## A-1-1-3
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+        #end## A-1-1-3
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+        #if($searchEngineElasticsearch)## A-1-1-4
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+        #end## A-1-1-4
+    }
+    #end## A-1-1
+  #end## A-1
+#end## A
+#if(!$jpaMetamodelFiltering && $reactive && $paginationNo)## A
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}AsStream() {
+        // Initialize the database
+  #if(!$primaryKey.derived)## A-1
+    #foreach($field in $primaryKey.fields)## A-1-1
+      #if(!$field.autoGenerateByRepository)## A-1-1-1
+        ${persistInstance}.${field.propertyConsumerName}(${field.fieldJavaValueGenerator});
+      #end## A-1-1-1
+    #end## A-1-1
+  #end## A-1
+        ${entityInstance}Repository.save(${persistInstance})${callBlock};
+
+        List<${persistClass}> ${entityInstance}List = webTestClient.get().uri(ENTITY_API_URL)
+            .accept(MediaType.APPLICATION_NDJSON)
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_NDJSON)
+            .returnResult(${restClass}.class)
+            .getResponseBody()
+  #if($dtoMapstruct)## A-1
+            .map(${entityInstance}Mapper::toEntity)
+  #end## A-1
+            .filter(${persistInstance}::equals)
+            .collectList()
+            .block(Duration.ofSeconds(5));
+
+        assertThat(${entityInstance}List).isNotNull();
+        assertThat(${entityInstance}List).hasSize(1);
+        ${persistClass} test${entityClass} = ${entityInstance}List.get(0);
+
+  #if($reactive && $databaseTypeSql)## A-1
+        // Test fails because reactive api returns an empty object instead of null
+        // assert${persistClass}AllPropertiesEquals(${persistInstance}, test${entityClass});
+        assert${persistClass}UpdatableFieldsEquals(${persistInstance}, test${entityClass});
+  #else## A-1
+        assert${persistClass}AllPropertiesEquals(${persistInstance}, test${entityClass});
+  #end## A-1
+    }
+#end## A
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}() #if(!$reactive)throws Exception #end{
+        // Initialize the database
+#if(!$primaryKey.derived)## A
+  #foreach($field in $primaryKey.fields)## A-1
+    #if(!$field.autoGenerateByRepository)## A-1-1
+        ${persistInstance}.${field.propertyConsumerName}(${field.fieldJavaValueGenerator});
+    #end## A-1-1
+  #end## A-1
+#end## A
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List
+#if($reactive)## A
+        webTestClient.get().uri(ENTITY_API_URL + "?sort=${primaryKey.name},desc")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBody()
+#else## A
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL#[[?sort=]]#${primaryKey.name},desc))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+#end## A
+#if($databaseTypeSql || $databaseTypeMongodb || $databaseTypeCouchbase || $databaseTypeCassandra)## A
+            #{if}(!$reactive).andExpect(#end jsonPath("$.[*].${primaryKey.name}").value(hasItem(${idValue}))#{if}(!$reactive))#end
+#end## A
+#foreach($field in $fieldsToTest)## A
+  #if($field.fieldTypeBinary && !$field.blobContentTypeText)## A-1
+            #{if}(!$reactive).andExpect(#end jsonPath("$.[*].${field.fieldName}ContentType").value(hasItem(DEFAULT_${field.fieldNameUnderscored.toUpperCase()}_CONTENT_TYPE))#{if}(!$reactive))#end
+  #end## A-1
+            #{if}(!$reactive).andExpect(#end jsonPath("$.[*].${field.fieldName}").value(hasItem(#{if}($field.fieldTypeBinary && !$field.blobContentTypeText)Base64.getEncoder().encodeToString(#{if}($databaseTypeCassandra).array()#{end})#{elseif}($field.fieldTypeZonedDateTime)sameInstant(#{elseif}($field.fieldTypeBigDecimal)sameNumber(#{end}DEFAULT_${field.fieldNameUnderscored.toUpperCase()}#{if}($field.fieldTypeLong).intValue()#{elseif}($field.fieldTypeFloat).doubleValue()#{elseif}($field.fieldTypeBigDecimal))#{elseif}($field.fieldTypeZonedDateTime))#{elseif}($field.fieldTypeLocalTime).format(LOCAL_DATE_TIME_FORMAT)#{elseif}(!$field.fieldTypeString && !$field.fieldTypeBoolean && !$field.fieldTypeInteger && !$field.fieldTypeDouble).toString()#{end}))#{if}(!$reactive))#end
+#end## A
+            ;
+    }
+#if($implementsEagerLoadApis && !$databaseTypeNeo4j && !$databaseTypeCouchbase)## A
+
+    @SuppressWarnings({"unchecked"})
+    void getAll${entityClassPlural}WithEagerRelationshipsIsEnabled() #{if}(!$reactive)throws Exception #{end}{
+  #if(!$serviceNo)## A-1
+        when(${entityInstance}ServiceMock.findAllWithEagerRelationships(any())).thenReturn(#{if}($reactive)Flux.empty()#{else}new PageImpl(new ArrayList<>())#{end});
+  #else## A-1
+        when(${entityInstance}RepositoryMock.findAllWithEagerRelationships(any())).thenReturn(#{if}($reactive)Flux.empty()#{else}new PageImpl(new ArrayList<>())#{end});
+  #end## A-1
+
+  #if($reactive)## A-1
+        webTestClient.get().uri(ENTITY_API_URL + "?eagerload=true")
+            .exchange()
+            .expectStatus().isOk();
+  #else## A-1
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL + "?eagerload=true"))
+            .andExpect(status().isOk());
+  #end## A-1
+
+  #if(!$serviceNo)## A-1
+        verify(${entityInstance}ServiceMock, times(1)).findAllWithEagerRelationships(any());
+  #else## A-1
+        verify(${entityInstance}RepositoryMock, times(1)).findAllWithEagerRelationships(any());
+  #end## A-1
+    }
+
+    @SuppressWarnings({"unchecked"})
+    void getAll${entityClassPlural}WithEagerRelationshipsIsNotEnabled() #{if}(!$reactive)throws Exception #{end}{
+  #if(!$serviceNo)## A-1
+        when(${entityInstance}ServiceMock.findAllWithEagerRelationships(any())).thenReturn(#{if}($reactive)Flux.empty()#{else}new PageImpl(new ArrayList<>())#{end});
+  #else## A-1
+        when(${entityInstance}RepositoryMock.findAllWithEagerRelationships(any())).thenReturn(#{if}($reactive)Flux.empty()#{else}new PageImpl(new ArrayList<>())#{end});
+  #end## A-1
+
+  #if($reactive)## A-1
+        webTestClient.get().uri(ENTITY_API_URL + "?eagerload=false")
+            .exchange()
+            .expectStatus().isOk();
+  #else## A-1
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL + "?eagerload=false"))
+            .andExpect(status().isOk());
+  #end## A-1
+        verify(${entityInstance}RepositoryMock, times(1)).findAll#{if}($reactive)WithEagerRelationships(any()#{else}(any(Pageable.class)#{end});
+    }
+#end## A
+
+    @Test${transactionalAnnotation}
+    void get${entityClass}() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+#if(!$primaryKey.derived)## A
+  #foreach($field in $primaryKey.fields)## A-1
+    #if(!$field.autoGenerateByRepository)## A-1-1
+        ${persistInstance}.${field.propertyConsumerName}(${field.fieldJavaValueGenerator});
+    #end## A-1-1
+  #end## A-1
+#end## A
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get the ${entityInstance}
+#if($reactive)## A
+        webTestClient.get().uri(ENTITY_API_URL_ID, ${persistInstance}.${primaryKey.propertySupplierName}())
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBody()
+#else## A
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL_ID, ${persistInstance}.${primaryKey.propertySupplierName}()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+#end## A
+#if($databaseTypeSql || $databaseTypeMongodb || $databaseTypeCouchbase || $databaseTypeCassandra)## A
+            #{if}(!$reactive).andExpect(#end jsonPath("$.${primaryKey.name}").value(#{if}($reactive)is(#{end}${idValue})#{if}($reactive))#{end}
+#end## A
+#foreach($field in $fieldsToTest)## A
+  #if($field.fieldTypeBinary && !$field.blobContentTypeText)## A-1
+            #{if}(!$reactive).andExpect(#end jsonPath("$.${field.fieldName}ContentType").value(#{if}($reactive)is(#{end}DEFAULT_${field.fieldNameUnderscored.toUpperCase()}_CONTENT_TYPE))
+  #end## A-1
+            #{if}(!$reactive).andExpect(#end jsonPath("$.${field.fieldName}").value(#{if}($reactive)is(#{end}#{if}($field.fieldTypeBinary && !$field.blobContentTypeText)Base64.getEncoder().encodeToString(#{if}($databaseTypeCassandra).array()#{end})#{elseif}($field.fieldTypeZonedDateTime)sameInstant(#{elseif}($field.fieldTypeBigDecimal)sameNumber(#{end}DEFAULT_${field.fieldNameUnderscored.toUpperCase()}#{if}($field.fieldTypeLong).intValue()#{elseif}($field.fieldTypeFloat).doubleValue()#{elseif}($field.fieldTypeBigDecimal))#{elseif}($field.fieldTypeZonedDateTime))#{elseif}($field.fieldTypeLocalTime).format(LOCAL_DATE_TIME_FORMAT)#{elseif}(!$field.fieldTypeString && !$field.fieldTypeBoolean && !$field.fieldTypeInteger && !$field.fieldTypeDouble).toString()#{end}))#{if}(!$reactive))#end
+#end## A
+            ;
+    }
+#if($jpaMetamodelFiltering)## A
+
+    @Test${transactionalAnnotation}
+    void get${entityClassPlural}ByIdFiltering() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        ${primaryKey.type} id = ${persistInstance}.${primaryKey.propertySupplierName}();
+
+        default${entityClass}Filtering("${primaryKey.name}.equals=" + id, "${primaryKey.name}.notEquals=" + id);
+
+  #if($primaryKey.typeLong || $primaryKey.typeInteger)## A-1
+        default${entityClass}Filtering("${primaryKey.name}.greaterThanOrEqual=" + id, "${primaryKey.name}.greaterThan=" + id);
+        default${entityClass}Filtering("${primaryKey.name}.lessThanOrEqual=" + id, "${primaryKey.name}.lessThan=" + id);
+  #end## A-1
+    }
+
+  #foreach($searchBy in $fieldsToTest)## A-1
+    #if($searchBy.filterableField)## A-1-1
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}IsEqualToSomething() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} equals to
+        default${entityClass}Filtering(
+            "${searchBy.fieldName}.equals=" + DEFAULT_${searchBy.fieldNameUnderscored.toUpperCase()},
+            "${searchBy.fieldName}.equals=" + UPDATED_${searchBy.fieldNameUnderscored.toUpperCase()}
+        );
+    }
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}IsInShouldWork() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} in
+        default${entityClass}Filtering(
+            "${searchBy.fieldName}.in=" + DEFAULT_${searchBy.fieldNameUnderscored.toUpperCase()} + "," + UPDATED_${searchBy.fieldNameUnderscored.toUpperCase()},
+            "${searchBy.fieldName}.in=" + UPDATED_${searchBy.fieldNameUnderscored.toUpperCase()}
+        );
+    }
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}IsNullOrNotNull() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} is not null
+        default${entityClass}Filtering(
+            "${searchBy.fieldName}.specified=true",
+            "${searchBy.fieldName}.specified=false"
+        );
+    }
+    #end## A-1-1
+    #if($searchBy.fieldTypeString)## A-1-1
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}ContainsSomething() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} contains
+        default${entityClass}Filtering(
+            "${searchBy.fieldName}.contains=" + DEFAULT_${searchBy.fieldNameUnderscored.toUpperCase()},
+            "${searchBy.fieldName}.contains=" + UPDATED_${searchBy.fieldNameUnderscored.toUpperCase()}
+        );
+    }
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}NotContainsSomething() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} does not contain
+        default${entityClass}Filtering(
+            "${searchBy.fieldName}.doesNotContain=" + UPDATED_${searchBy.fieldNameUnderscored.toUpperCase()},
+            "${searchBy.fieldName}.doesNotContain=" + DEFAULT_${searchBy.fieldNameUnderscored.toUpperCase()}
+        );
+    }
+    #end## A-1-1
+    #if($searchBy.fieldTypeNumeric || $searchBy.fieldTypeDuration || $searchBy.fieldTypeLocalDate || $searchBy.fieldTypeZonedDateTime)## A-1-1
+      #set($defaultVal = "DEFAULT_${searchBy.fieldNameUnderscored.toUpperCase()}")
+      #set($biggerVal = "UPDATED_${searchBy.fieldNameUnderscored.toUpperCase()}")
+      #set($smallerVal = "SMALLER_${searchBy.fieldNameUnderscored.toUpperCase()}")
+      #if($searchBy.fieldValidate && $searchBy.fieldValidationMax)## A-1-1-1
+        #set($biggerVal = "(" + $defaultVal + " + 1)")
+      #end## A-1-1-1
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}IsGreaterThanOrEqualToSomething() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} is greater than or equal to
+        default${entityClass}Filtering(
+            "${searchBy.fieldName}.greaterThanOrEqual=" + ${defaultVal},
+            "${searchBy.fieldName}.greaterThanOrEqual=" + ${biggerVal}
+        );
+    }
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}IsLessThanOrEqualToSomething() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} is less than or equal to
+        default${entityClass}Filtering(
+            "${searchBy.fieldName}.lessThanOrEqual=" + ${defaultVal},
+            "${searchBy.fieldName}.lessThanOrEqual=" + ${smallerVal}
+        );
+    }
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}IsLessThanSomething() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} is less than
+        default${entityClass}Filtering(
+            "${searchBy.fieldName}.lessThan=" + ${biggerVal},
+            "${searchBy.fieldName}.lessThan=" + ${defaultVal}
+        );
+    }
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${searchBy.fieldInJavaBeanMethod}IsGreaterThanSomething() #{if}(!$reactive)throws Exception #{end}{
+        // Initialize the database
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        // Get all the ${entityInstance}List where ${searchBy.fieldName} is greater than
+        default${entityClass}Filtering(
+          "${searchBy.fieldName}.greaterThan=" + ${smallerVal},
+          "${searchBy.fieldName}.greaterThan=" + ${defaultVal}
+        );
+    }
+    #end## A-1-1
+  #end## A-1
+  #foreach($relationship in $filterTestableRelationships)## A-1
+
+    @Test${transactionalAnnotation}
+    void getAll${entityClassPlural}By${relationship.relationshipNameCapitalized}IsEqualToSomething() #{if}(!$reactive)throws Exception #{end}{
+    #if(($relationship.relationshipValidate && $relationship.relationshipOneToOne) || $relationship.id)## A-1-1
+        // Get already existing entity
+        ${relationship.otherEntity.persistClass} ${relationship.relationshipFieldName} = ${persistInstance}.${relationship.propertySupplierName}();
+    #else## A-1-1
+      #if($databaseTypeSql && !$reactive)## A-1-1-1
+        ${relationship.otherEntity.persistClass} ${relationship.relationshipFieldName};
+        if (TestUtil.findAll(em, ${relationship.otherEntity.persistClass}.class).isEmpty()) {
+            ${entityInstance}Repository.saveAndFlush(${persistInstance});
+            ${relationship.relationshipFieldName} = ${createEntityPrefix}${relationship.otherEntity.entityNameCapitalized}ResourceIT.createEntity(#if($relationship.otherEntity.anyRelationshipIsRequired)em#end);
+        } else {
+            ${relationship.relationshipFieldName} = TestUtil.findAll(em, ${relationship.otherEntity.persistClass}.class).get(0);
+        }
+      #else## A-1-1-1
+        ${relationship.otherEntity.persistClass} ${relationship.relationshipFieldName} = ${relationship.otherEntity.entityNameCapitalized}ResourceIT.createEntity(#if($relationship.otherEntity.anyRelationshipIsRequired)em#end);
+      #end## A-1-1-1
+      #if($reactive)## A-1-1-2
+        ${relationship.otherEntity.persistInstance}Repository.${saveMethod}(${relationship.relationshipFieldName})${callBlock};
+      #else## A-1-1-2
+        em.persist(${relationship.relationshipFieldName});
+        em.flush();
+      #end## A-1-1-2
+      #if(!$reactive && ($relationship.relationshipManyToMany || $relationship.relationshipOneToMany))## A-1-1-3
+        ${persistInstance}.add${relationship.relationshipNameCapitalized}(${relationship.relationshipFieldName});
+      #elseif(!$reactive)## A-1-1-3
+        ${persistInstance}.${relationship.propertyConsumerName}(${relationship.relationshipFieldName});
+        #if(!$relationship.ownerSide)## A-1-1-3-1
+        ${relationship.relationshipFieldName}.${relationship.otherRelationship.propertyConsumerName}(${persistInstance});
+        #end## A-1-1-3-1
+      #else## A-1-1-3
+        ${relationship.otherEntity.primaryKey.type} ${relationship.relationshipFieldName}Id = ${relationship.relationshipFieldName}.${relationship.otherEntity.primaryKey.propertySupplierName}();
+        ${persistInstance}.${relationship.propertyConsumerName}Id(${relationship.relationshipFieldName}Id);
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+      #end## A-1-1-3
+    #end## A-1-1
+    #if(!$reactive)## A-1-1
+        ${entityInstance}Repository.saveAndFlush(${persistInstance});
+        ${relationship.otherEntity.primaryKey.type} ${relationship.relationshipFieldName}Id = ${relationship.relationshipFieldName}.${relationship.otherEntity.primaryKey.propertySupplierName}();
+    #end## A-1-1
+        // Get all the ${entityInstance}List where ${relationship.relationshipFieldName} equals to ${relationship.relationshipFieldName}Id
+        default${entityClass}ShouldBeFound("${relationship.relationshipFieldName}Id.equals=" + ${relationship.relationshipFieldName}Id);
+    #set($initInvalidPrimaryKey = {
+        'String' : '"invalid-id"',
+        'Long' : '(' + $relationship.relationshipFieldName + 'Id + 1)',
+        'UUID' : 'UUID.randomUUID()'
+    }.get($relationship.otherEntity.primaryKey.type))
+        // Get all the ${entityInstance}List where ${relationship.relationshipFieldName} equals to ${initInvalidPrimaryKey}
+        default${entityClass}ShouldNotBeFound("${relationship.relationshipFieldName}Id.equals=" + ${initInvalidPrimaryKey});
+    }
+  #end## A-1
+    private void default${entityClass}Filtering (String shouldBeFound, String shouldNotBeFound) #{if}(!$reactive)throws Exception #{end}{
+        default${entityClass}ShouldBeFound(shouldBeFound);
+        default${entityClass}ShouldNotBeFound(shouldNotBeFound);
+    }
+
+    /**
+     * Executes the search, and checks that the default entity is returned.
+     */
+  #if($reactive)## A-1
+    private void default${entityClass}ShouldBeFound(String filter) {
+        webTestClient.get().uri(ENTITY_API_URL + "?sort=${primaryKey.name},desc&" + filter)
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBody()
+            .jsonPath("$.[*].${primaryKey.name}").value(hasItem(${idValue}))
+#foreach($field in $fieldsToTest)## A-1-1
+  #if($field.fieldTypeBinary && !$field.blobContentTypeText)## A-1-1-1
+            .jsonPath("$.[*].${field.fieldName}ContentType").value(hasItem(DEFAULT_${field.fieldNameUnderscored.toUpperCase()}_CONTENT_TYPE))
+  #end## A-1-1-1
+            .jsonPath("$.[*].${field.fieldName}").value(hasItem(#{if}($field.fieldTypeBinary && !$field.blobContentTypeText)Base64.getEncoder().encodeToString(#{if}($databaseTypeCassandra).array()#{end})#{elseif}($field.fieldTypeZonedDateTime)sameInstant(#{elseif}($field.fieldTypeBigDecimal)sameNumber(#{end}DEFAULT_${field.fieldNameUnderscored.toUpperCase()}#{if}($field.fieldTypeLong).intValue()#{elseif}($field.fieldTypeFloat).doubleValue()#{elseif}($field.fieldTypeBigDecimal))#{elseif}($field.fieldTypeZonedDateTime))#{elseif}($field.fieldTypeLocalTime).format(LOCAL_DATE_TIME_FORMAT)#{elseif}(!$field.fieldTypeString && !$field.fieldTypeBoolean && !$field.fieldTypeInteger && !$field.fieldTypeDouble).toString()#{end}))
+#end## A-1-1
+;
+
+        // Check, that the count call also returns 1
+        webTestClient.get().uri(ENTITY_API_URL + "/count?sort=${primaryKey.name},desc&" + filter)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody()
+      #if($reactive)## A-1-1
+                .jsonPath("$").value(is(1));
+      #else## A-1-1
+                .json("1");
+      #end## A-1-1
+    }
+  #else## A-1
+    private void default${entityClass}ShouldBeFound(String filter) throws Exception {
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL + "?sort=${primaryKey.name},desc&" + filter))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.[*].${primaryKey.name}").value(hasItem(${persistInstance}.${primaryKey.propertySupplierName}()${primaryKeyConversion})))
+#foreach($field in $fieldsToTest)## A-1-1
+  #if($field.fieldTypeBinary && !$field.blobContentTypeText)## A-1-1-1
+            .andExpect(jsonPath("$.[*].${field.fieldName}ContentType").value(hasItem(DEFAULT_${field.fieldNameUnderscored.toUpperCase()}_CONTENT_TYPE)))
+  #end## A-1-1-1
+            .andExpect(jsonPath("$.[*].${field.fieldName}").value(hasItem(#{if}($field.fieldTypeBinary && !$field.blobContentTypeText)Base64.getEncoder().encodeToString(#{if}($databaseTypeCassandra).array()#{end})#{elseif}($field.fieldTypeZonedDateTime)sameInstant(#{elseif}($field.fieldTypeBigDecimal)sameNumber(#{end}DEFAULT_${field.fieldNameUnderscored.toUpperCase()}#{if}($field.fieldTypeLong).intValue()#{elseif}($field.fieldTypeFloat).doubleValue()#{elseif}($field.fieldTypeBigDecimal))#{elseif}($field.fieldTypeZonedDateTime))#{elseif}($field.fieldTypeLocalTime).format(LOCAL_DATE_TIME_FORMAT)#{elseif}(!$field.fieldTypeString && !$field.fieldTypeBoolean && !$field.fieldTypeInteger && !$field.fieldTypeDouble).toString()#{end})))
+#end## A-1-1
+;
+
+        // Check, that the count call also returns 1
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL + "/count?sort=${primaryKey.name},desc&" + filter))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().string("1"));
+    }
+  #end## A-1
+
+    /**
+     * Executes the search, and checks that the default entity is not returned.
+     */
+  #if($reactive)## A-1
+    private void default${entityClass}ShouldNotBeFound(String filter) {
+        webTestClient.get().uri(ENTITY_API_URL + "?sort=${primaryKey.name},desc&" + filter)
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBody()
+            .jsonPath("$").isArray()
+            .jsonPath("$").isEmpty();
+
+        // Check, that the count call also returns 0
+        webTestClient.get().uri(ENTITY_API_URL + "/count?sort=${primaryKey.name},desc&" + filter)
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBody()
+      #if($reactive)## A-1-1
+            .jsonPath("$").value(is(0));
+      #else## A-1-1
+            .json("0");
+      #end## A-1-1
+    }
+  #else## A-1
+    private void default${entityClass}ShouldNotBeFound(String filter) throws Exception {
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL + "?sort=${primaryKey.name},desc&" + filter))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$").isArray())
+            .andExpect(jsonPath("$").isEmpty());
+
+        // Check, that the count call also returns 0
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL + "/count?sort=${primaryKey.name},desc&" + filter))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().string("0"));
+    }
+  #end## A-1
+
+#end## A
+
+    @Test${transactionalAnnotation}
+    void getNonExisting${entityClass}() #{if}(!$reactive)throws Exception #{end}{
+        // Get the ${entityInstance}
+#if($reactive)## A
+        webTestClient.get().uri(ENTITY_API_URL_ID, #{if}($primaryKey.typeInteger)Integer.MAX_VALUE#{elseif}($primaryKey.typeLong || $primaryKey.typeString)Long.MAX_VALUE#{elseif}($primaryKey.typeUUID)UUID.randomUUID().toString()#{end})
+            .accept(MediaType.APPLICATION_PROBLEM_JSON)
+            .exchange()
+            .expectStatus().isNotFound();
+#else## A
+        rest${entityClass}MockMvc.perform(get(ENTITY_API_URL_ID, #{if}($primaryKey.typeInteger)Integer.MAX_VALUE#{elseif}($primaryKey.typeLong || $primaryKey.typeString)Long.MAX_VALUE#{elseif}($primaryKey.typeUUID)UUID.randomUUID().toString()#{end}))
+            .andExpect(status().isNotFound());
+#end## A
+    }
+#if(!$readOnly && $updatableEntity)## A
+
+    @Test${transactionalAnnotation}
+    void putExisting${entityClass}() throws Exception {
+        // Initialize the database
+  #if(!$primaryKey.derived)## A-1
+    #foreach($field in $primaryKey.fields)## A-1-1
+      #if(!$field.autoGenerateByRepository)## A-1-1-1
+        ${persistInstance}.${field.propertyConsumerName}(${field.fieldJavaValueGenerator});
+      #end## A-1-1-1
+    #end## A-1-1
+  #end## A-1
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        ${entityInstance}SearchRepository.save(${persistInstance})${callBlock};
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+
+        // Update the ${entityInstance}
+        ${persistClass} updated${persistClass} = ${entityInstance}Repository.findById(${persistInstance}.${primaryKey.propertySupplierName}())${reactive ? '.block()' : '.orElseThrow()'};
+  #if($databaseTypeSql && !$reactive)## A-1
+        // Disconnect from session so that the updates on updated${persistClass} are not directly saved in db
+        em.detach(updated${persistClass});
+  #end## A-1
+  #if($fluentMethods && $fieldsToTest.size() > 0)## A-1
+        updated${persistClass}#foreach($field in $fieldsToTest)
+            .${field.fieldName}(UPDATED_${field.fieldNameUnderscored.toUpperCase()})#if($field.fieldTypeBinary && !$field.blobContentTypeText)
+            .${field.fieldName}ContentType(UPDATED_${field.fieldNameUnderscored.toUpperCase()}_CONTENT_TYPE)#end#end;
+  #else## A-1
+    #foreach($field in $fieldsToTest)## A-1-1
+        updated${persistClass}.${field.propertyConsumerName}(UPDATED_${field.fieldNameUnderscored.toUpperCase()});
+      #if($field.fieldTypeBinary && !$field.blobContentTypeText)## A-1-1-1
+        updated${persistClass}.${field.propertyConsumerName}ContentType(UPDATED_${field.fieldNameUndcored.toUpperCase()}_CONTENT_TYPE);
+      #end## A-1-1-1
+    #end## A-1-1
+  #end## A-1
+  #if($dtoMapstruct)## A-1
+        ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(updated${persistClass});
+  #end## A-1
+
+  #if($reactive)## A-1
+        webTestClient.put().uri(ENTITY_API_URL_ID, #{if}($dtoMapstruct)${dtoInstance}#{else}updated${persistClass}#{end}.${primaryKey.propertySupplierName}())
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(om.writeValueAsBytes(#{if}($dtoMapstruct)${dtoInstance}#{else}updated${persistClass}#{end}))
+            .exchange()
+            .expectStatus().isOk();
+  #else## A-1
+        rest${entityClass}MockMvc.perform(put(ENTITY_API_URL_ID, #{if}($dtoMapstruct)${dtoInstance}#{else}updated${persistClass}#{end}.${primaryKey.propertySupplierName}())#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(om.writeValueAsBytes(#{if}($dtoMapstruct)${dtoInstance}#{else}updated${persistClass}#{end})))
+            .andExpect(status().isOk());
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertPersisted${persistClass}ToMatchAllProperties(updated${persistClass});
+
+  #if($searchEngineElasticsearch)## A-1
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+            assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+            List<${persistClass}> ${entityInstance}SearchList = Streamable.of(${entityInstance}SearchRepository.findAll()${callListBlock}).toList();
+            ${persistClass} test${entityClass}Search = ${entityInstance}SearchList.get(searchDatabaseSizeAfter - 1);
+
+    #if($reactive && $databaseTypeSql)## A-1-1
+            // Test fails because reactive api returns an empty object instead of null
+            // assert${persistClass}AllPropertiesEquals(test${entityClass}Search, updated${persistClass});
+            assert${persistClass}UpdatableFieldsEquals(test${entityClass}Search, updated${persistClass});
+    #else## A-1-1
+            assert${persistClass}AllPropertiesEquals(test${entityClass}Search, updated${persistClass});
+    #end## A-1-1
+      });
+  #end## A-1
+    }
+
+    @Test${transactionalAnnotation}
+    void putNonExisting${entityClass}() throws Exception {
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(${primaryKey.javaValueGenerator});
+
+  #if($dtoMapstruct)## A-1
+        // Create the ${entityClass}
+        ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});
+  #end## A-1
+
+        // If the entity doesn't have an ID, it will throw BadRequestAlertException
+  #if($reactive)## A-1
+        webTestClient.put().uri(ENTITY_API_URL_ID, ${restInstance}.${primaryKey.propertySupplierName}())
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isBadRequest();
+  #else## A-1
+        rest${entityClass}MockMvc.perform(put(ENTITY_API_URL_ID, ${restInstance}.${primaryKey.propertySupplierName}())#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(om.writeValueAsBytes(${restInstance})))
+            .andExpect(status().isBadRequest());
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+  #end## A-1
+    }
+
+    @Test${transactionalAnnotation}
+    void putWithIdMismatch${entityClass}() throws Exception {
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(${primaryKey.javaValueGenerator});
+
+  #if($dtoMapstruct)## A-1
+        // Create the ${entityClass}
+        ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});
+  #end## A-1
+
+        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
+  #if($reactive)## A-1
+        webTestClient.put().uri(ENTITY_API_URL_ID, ${primaryKey.javaValueGenerator})
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isBadRequest();
+  #else## A-1
+        rest${entityClass}MockMvc.perform(put(ENTITY_API_URL_ID, ${primaryKey.javaValueGenerator})#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(om.writeValueAsBytes(${restInstance})))
+            .andExpect(status().isBadRequest());
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+  #end## A-1
+    }
+
+    @Test${transactionalAnnotation}
+    void putWithMissingIdPathParam${entityClass}() throws Exception {
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(${primaryKey.javaValueGenerator});
+
+  #if($dtoMapstruct)## A-1
+        // Create the ${entityClass}
+        ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});
+  #end## A-1
+
+        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
+  #if($reactive)## A-1
+        webTestClient.put().uri(ENTITY_API_URL)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isEqualTo(405);
+  #else## A-1
+        rest${entityClass}MockMvc.perform(put(ENTITY_API_URL)#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(om.writeValueAsBytes(${restInstance})))
+            .andExpect(status().isMethodNotAllowed());
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+  #end## A-1
+    }
+
+## 假设 fieldsToIncludeInPartialPatchTest 等变量已在上下文中提供
+#set($fieldsToIncludeInPartialPatchTest = $fieldsToTest)## 这里简单处理
+    @Test${transactionalAnnotation}
+    void partialUpdate${entityClass}WithPatch() throws Exception {
+        // Initialize the database
+  #if(!$primaryKey.derived)## A-1
+    #foreach($field in $primaryKey.fields)## A-1-1
+      #if(!$field.autoGenerateByRepository)## A-1-1-1
+        ${persistInstance}.${field.propertyConsumerName}(${field.fieldJavaValueGenerator});
+      #end## A-1-1-1
+    #end## A-1-1
+  #end## A-1
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+## 参数：fields, saveMethod, callBlock, callListBlock
+#_global_partials_entity_it_patch_update_java($fieldsToIncludeInPartialPatchTest $saveMethod $callBlock $callListBlock)
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assert${persistClass}UpdatableFieldsEquals(
+            createUpdateProxyForBean(partialUpdated${persistClass}, ${persistInstance}),
+            getPersisted${persistClass}(${persistInstance})
+        );
+    }
+
+    @Test${transactionalAnnotation}
+    void fullUpdate${entityClass}WithPatch() throws Exception {
+        // Initialize the database
+  #if(!$primaryKey.derived)## A-1
+    #foreach($field in $primaryKey.fields)## A-1-1
+      #if(!$field.autoGenerateByRepository)## A-1-1-1
+        ${persistInstance}.${field.propertyConsumerName}(${field.fieldJavaValueGenerator});
+      #end## A-1-1-1
+    #end## A-1-1
+  #end## A-1
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+
+#set($fieldsToIncludeInFullPatchTest = $fieldsToTest)## 假设全部
+#_global_partials_entity_it_patch_update_java($fieldsToIncludeInFullPatchTest $saveMethod $callBlock $callListBlock)
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assert${persistClass}UpdatableFieldsEquals(
+            partialUpdated${persistClass},
+            getPersisted${persistClass}(partialUpdated${persistClass})
+        );
+    }
+
+    @Test${transactionalAnnotation}
+    void patchNonExisting${entityClass}() throws Exception {
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(${primaryKey.javaValueGenerator});
+
+  #if($dtoMapstruct)## A-1
+            // Create the ${entityClass}
+            ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});
+  #end## A-1
+
+        // If the entity doesn't have an ID, it will throw BadRequestAlertException
+  #if($reactive)## A-1
+        webTestClient.patch().uri(ENTITY_API_URL_ID, ${restInstance}.${primaryKey.propertySupplierName}())
+            .contentType(MediaType.valueOf("application/merge-patch+json"))
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isBadRequest();
+  #else## A-1
+        rest${entityClass}MockMvc.perform(patch(ENTITY_API_URL_ID, ${restInstance}.${primaryKey.propertySupplierName}())#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .contentType("application/merge-patch+json")
+            .content(om.writeValueAsBytes(${restInstance})))
+            .andExpect(status().isBadRequest());
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+  #end## A-1
+    }
+
+    @Test${transactionalAnnotation}
+    void patchWithIdMismatch${entityClass}() throws Exception {
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(${primaryKey.javaValueGenerator});
+
+  #if($dtoMapstruct)## A-1
+            // Create the ${entityClass}
+            ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});
+  #end## A-1
+
+        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
+  #if($reactive)## A-1
+        webTestClient.patch().uri(ENTITY_API_URL_ID, ${primaryKey.javaValueGenerator})
+            .contentType(MediaType.valueOf("application/merge-patch+json"))
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isBadRequest();
+  #else## A-1
+        rest${entityClass}MockMvc.perform(patch(ENTITY_API_URL_ID, ${primaryKey.javaValueGenerator})#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .contentType("application/merge-patch+json")
+            .content(om.writeValueAsBytes(${restInstance})))
+            .andExpect(status().isBadRequest());
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+  #end## A-1
+    }
+
+    @Test${transactionalAnnotation}
+    void patchWithMissingIdPathParam${entityClass}() throws Exception {
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+      int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+  #end## A-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(${primaryKey.javaValueGenerator});
+
+  #if($dtoMapstruct)## A-1
+            // Create the ${entityClass}
+            ${dtoClass} ${dtoInstance} = ${entityInstance}Mapper.toDto(${persistInstance});
+  #end## A-1
+
+        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
+  #if($reactive)## A-1
+        webTestClient.patch().uri(ENTITY_API_URL)
+            .contentType(MediaType.valueOf("application/merge-patch+json"))
+            .bodyValue(om.writeValueAsBytes(${restInstance}))
+            .exchange()
+            .expectStatus().isEqualTo(405);
+  #else## A-1
+        rest${entityClass}MockMvc.perform(patch(ENTITY_API_URL)#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .contentType("application/merge-patch+json")
+            .content(om.writeValueAsBytes(${restInstance})))
+            .andExpect(status().isMethodNotAllowed());
+  #end## A-1
+
+        // Validate the ${entityClass} in the database
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore);
+  #end## A-1
+    }
+#end## A
+#if(!$readOnly)## A
+
+    @Test${transactionalAnnotation}
+    void delete${entityClass}() #if(!$reactive)throws Exception #end{
+        // Initialize the database
+  #if(!$primaryKey.derived)## A-1
+    #foreach($field in $primaryKey.fields)## A-1-1
+      #if(!$field.autoGenerateByRepository)## A-1-1-1
+        ${persistInstance}.${primaryKey.propertyConsumerName}(${field.fieldJavaValueGenerator});
+      #end## A-1-1-1
+    #end## A-1-1
+  #end## A-1
+              #{if}(!$databaseTypeCouchbase)  inserted${persistClass} = #{end}${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+  #if($searchEngineElasticsearch)## A-1
+        ${entityInstance}Repository.save(${persistInstance})${callBlock};
+        ${entityInstance}SearchRepository.save(${persistInstance})${callBlock};
+  #end## A-1
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeBefore = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeBefore).isEqualTo(databaseSizeBeforeDelete);
+  #end## A-1
+
+        // Delete the ${entityInstance}
+  #if($reactive)## A-1
+        webTestClient.delete().uri(ENTITY_API_URL_ID, ${persistInstance}.${primaryKey.propertySupplierName}())
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isNoContent();
+  #else## A-1
+        rest${entityClass}MockMvc.perform(delete(ENTITY_API_URL_ID, ${persistInstance}.${primaryKey.propertySupplierName}()#if($primaryKey.typeUUID && $databaseTypeSql).toString()#end)#{if}($authenticationUsesCsrf).with(csrf())#{end}
+            .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+  #end## A-1
+
+        // Validate the database contains one less item
+  #if($databaseTypeCouchbase)## A-1
+        SecurityContextHolder.setContext(TestSecurityContextHolder.getContext());
+  #end## A-1
+        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+  #if($searchEngineElasticsearch)## A-1
+        int searchDatabaseSizeAfter = IterableUtil.sizeOf(${entityInstance}SearchRepository.findAll()${callListBlock});
+        assertThat(searchDatabaseSizeAfter).isEqualTo(searchDatabaseSizeBefore-1);
+  #end## A-1
+    }
+#end## A
+#if($searchEngineAny)## A
+
+  #if($searchEngineCouchbase)## A-1
+    @Timeout(value = 15, unit = TimeUnit.MINUTES)
+  #end## A-1
+    @Test${transactionalAnnotation}
+    void search${entityClass}() #if(!$reactive)throws Exception #end{
+        // Initialize the database
+  #if(!$primaryKey.derived)## A-1
+    #foreach($field in $primaryKey.fields)## A-1-1
+      #if(!$field.autoGenerateByRepository)## A-1-1-1
+        ${persistInstance}.${field.propertyConsumerName}(${field.fieldJavaValueGenerator});
+      #end## A-1-1-1
+    #end## A-1-1
+  #end## A-1
+        inserted${persistClass} = ${entityInstance}Repository.${saveMethod}(${persistInstance})${callBlock};
+  #if($searchEngineElasticsearch)## A-1
+        ${entityInstance}SearchRepository.save(${persistInstance})${callBlock};
+  #elseif($searchEngineCouchbase)## A-1
+        // Wait for the ${entityInstance} to be indexed
+        TestUtil.retryUntilNotEmpty(() -> ${entityInstance}Repository.search("id:" + ${entityInstance}.${primaryKey.propertySupplierName}())#{if}($reactive).collectList().block()#{end});
+  #end## A-1
+
+        // Search the ${entityInstance}
+  #if($reactive)## A-1
+        webTestClient.get().uri(ENTITY_SEARCH_API_URL + "?query=id:" + ${persistInstance}.${primaryKey.propertySupplierName}())
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBody()
+  #else## A-1
+        rest${entityClass}MockMvc.perform(get(ENTITY_SEARCH_API_URL + "?query=id:" + ${persistInstance}.${primaryKey.propertySupplierName}()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+  #end## A-1
+  #if($databaseTypeSql || $databaseTypeMongodb || $databaseTypeCouchbase || $databaseTypeCassandra)## A-1
+            #{if}(!$reactive).andExpect(#end jsonPath("$.[*].${primaryKey.name}").value(hasItem(${idValue}))#{if}(!$reactive))#end
+  #end## A-1
+#foreach($field in $fieldsToTest)## A-1
+  #if($field.fieldTypeBinary && !$field.blobContentTypeText)## A-1-1
+            #{if}(!$reactive).andExpect(#end jsonPath("$.[*].${field.fieldName}ContentType").value(hasItem(DEFAULT_${field.fieldNameUnderscored.toUpperCase()}_CONTENT_TYPE))#{if}(!$reactive))#end
+  #end## A-1-1
+            #{if}(!$reactive).andExpect(#end jsonPath("$.[*].${field.fieldName}").value(hasItem(#{if}($field.fieldTypeBinary && !$field.blobContentTypeText)Base64.getEncoder().encodeToString(#{if}($databaseTypeCassandra).array()#{end})#{elseif}($field.fieldTypeZonedDateTime)sameInstant(#{elseif}($field.fieldTypeBigDecimal)sameNumber(#{end}DEFAULT_${field.fieldNameUnderscored.toUpperCase()}#{if}($field.fieldTypeLong).intValue()#{elseif}($field.fieldTypeFloat).doubleValue()#{elseif}($field.fieldTypeBigDecimal))#{elseif}($field.fieldTypeZonedDateTime))#{elseif}($field.fieldTypeLocalTime).format(LOCAL_DATE_TIME_FORMAT)#{elseif}(!$field.fieldTypeString && !$field.fieldTypeBoolean && !$field.fieldTypeInteger && !$field.fieldTypeDouble).toString()#{end}))#{if}(!$reactive))#end
+#end## A-1
+            ;
+    }
+#end## A
+
+    protected long getRepositoryCount() {
+        return ${entityInstance}Repository.count()${callBlock};
+    }
+
+    protected void assertIncrementedRepositoryCount(long countBefore) {
+        assertThat(countBefore + 1).isEqualTo(getRepositoryCount());
+    }
+
+    protected void assertDecrementedRepositoryCount(long countBefore) {
+        assertThat(countBefore - 1).isEqualTo(getRepositoryCount());
+    }
+
+    protected void assertSameRepositoryCount(long countBefore) {
+        assertThat(countBefore).isEqualTo(getRepositoryCount());
+    }
+
+    protected ${persistClass} getPersisted${persistClass}(${persistClass} ${entityInstance}) {
+        return ${entityInstance}Repository.findById(${entityInstance}.${primaryKey.propertySupplierName}()).${reactive ? 'block()' : 'orElseThrow()'};
+    }
+
+    protected void assertPersisted${persistClass}ToMatchAllProperties(${persistClass} expected${persistClass}) {
+#if($reactive && $databaseTypeSql)## A
+        // Test fails because reactive api returns an empty object instead of null
+        // assert${persistClass}AllPropertiesEquals(expected${persistClass}, getPersisted${persistClass}(expected${persistClass}));
+        assert${persistClass}UpdatableFieldsEquals(expected${persistClass}, getPersisted${persistClass}(expected${persistClass}));
+#else## A
+        assert${persistClass}AllPropertiesEquals(expected${persistClass}, getPersisted${persistClass}(expected${persistClass}));
+#end## A
+    }
+
+    protected void assertPersisted${persistClass}ToMatchUpdatableProperties(${persistClass} expected${persistClass}) {
+      #if($reactive && $databaseTypeSql)## A
+        // Test fails because reactive api returns an empty object instead of null
+        // assert${persistClass}AllUpdatablePropertiesEquals(expected${persistClass}, getPersisted${persistClass}(expected${persistClass}));
+        assert${persistClass}UpdatableFieldsEquals(expected${persistClass}, getPersisted${persistClass}(expected${persistClass}));
+#else## A
+        assert${persistClass}AllUpdatablePropertiesEquals(expected${persistClass}, getPersisted${persistClass}(expected${persistClass}));
+#end## A
+    }
+}

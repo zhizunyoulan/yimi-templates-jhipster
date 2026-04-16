@@ -1,0 +1,380 @@
+##
+## Initialize basic constants and placeholders
+#set( $D = '$' )
+#set($emptyStr = "")
+##
+## global variables
+## #set($global = {})
+#set($global.appName = "jhipsterApp")
+## #set($global.microserviceName = "")
+
+## Built-in JHipster User entity class used to detect User relationships
+#set($buildInUserClass = "${groupId}.domain.User")
+
+## Read translation settings from global context
+#set($enableTranslation = $global.enableTranslation)
+#set($nativeLanguage = $global.nativeLanguage)
+
+## Embedded entities are not supported by this template
+#set($embedded = false)
+##
+#if($readDefinition.paginate == "no")
+#set($paginationNo = true)
+#else
+#set($paginationNo = false)
+#end
+##
+#if($global.searchEngine == "no")
+#set($searchEngineAny = false)
+#set($searchEngineNo = true)
+#else
+#set($searchEngineAny = true)
+#set($searchEngineNo = false)
+#end
+##
+#if($global.searchEngine == "elasticsearch")
+#set($searchEngineElasticsearch = true)
+#else
+#set($searchEngineElasticsearch = false)
+#end
+##
+#if($global.searchEngine == "couchbase")
+#set($searchEngineCouchbase = true)
+#else
+#set($searchEngineCouchbase = false)
+#end
+## Export Spring Security authorize prefix when configured
+#if($global.entitySpringPreAuthorizePrefix != $null && $global.entitySpringPreAuthorizePrefix != "")
+#set($entitySpringPreAuthorizePrefix = $global.entitySpringPreAuthorizePrefix)
+#set($entitySpringReadPreAuthorizePrefix = $global.entitySpringPreAuthorizePrefix)
+#end
+##
+## Client root folder and derived field flags
+#set($clientRootFolder = $global.clientRootFolder)
+##
+#set($anyFieldIsBlobDerived = false)
+#set($anyFieldIsTimeDerived = false)
+#set($isUsingMapsId = false)
+##
+## Detect primary key field and build helper variables
+#set($primaryKeyField = $mainModel.getPrimaryKeyField())
+#if($primaryKeyField != $null)
+## Primary key type and name for frontend/backend template generation
+#set($primaryKey = {"type": $myTool.getJavaTypeSimpleName($primaryKeyField.javaType, true)})
+#set($primaryKey["name"] = $primaryKeyField.property)
+#set($primaryKey["nameCapitalized"] = $myTool.toUpperCamelCase($primaryKeyField.property))
+#set($primaryKey["propertySupplierName"] = $myTool.getPropertyGetterName($primaryKeyField.property, $primaryKeyField.javaType))
+#set($primaryKey["propertyConsumerName"] = $myTool.getFieldSetterName($primaryKeyField))
+#if($primaryKeyField.javaType == 'java.util.UUID')
+#set($primaryKey["typeUUID"] = true)
+#elseif($primaryKeyField.javaType == 'java.lang.String')
+#set($primaryKey["typeString"] = true)
+#end
+#end
+## Process entity fields and build field/relationship metadata
+#set($relationshipsContainEagerLoad = false)
+#set($containsBagRelationships = false)
+#set($relationships = [])
+#set($relationshipsByOtherEntity = {})
+#foreach($field in $mainModel.fields)## A
+#set($field["fieldName"] = $field.property)
+## #set($field["fieldType"] = $field.javaType)
+#set($field["fieldType"] = $myTool.getJavaTypeSimpleName($field.javaType, false))
+#set($fieldNameParts = $myTool.toKebabCase($field.property, $null).split("-"))
+#set($fieldNameHumanized = "")
+#foreach($fieldNamePart in $fieldNameParts)## A-1
+#if(!$foreach.first)## A-1-1
+#set($fieldNameHumanized = "$fieldNameHumanized ")
+#end## A-1-1
+#set($upperCasePart = $myTool.toUpperCamelCase($fieldNamePart))
+#set($fieldNameHumanized = "${fieldNameHumanized}${upperCasePart}")
+#end## A-1
+#set($field["fieldNameHumanized"] = $fieldNameHumanized)
+#if($field.jdbcType == 'BLOB')## A-1
+#set($anyFieldIsBlobDerived = true)
+#elseif($field.jdbcType == 'TIMESTAMP' || $field.jdbcType == 'DATE' || $field.jdbcType == 'TIME')## A-1
+#set($anyFieldIsTimeDerived = true)
+#end## A-1
+#if($field.nestInfo != $null)## A-2
+#set($propertyConsumerName = "set$myTool.toUpperCamelCase($field.property)")
+#set($propertyFilterSupplierName = "get$myTool.toUpperCamelCase($field.property)Id")
+#set($relationship = {"propertyName": $field.property, "propertySupplierName": $myTool.getPropertyGetterName($field.property, $field.javaType), "propertyConsumerName": $propertyConsumerName, "propertyFilterSupplierName": $propertyFilterSupplierName })
+#set($relationship["required"] = $field.selectProperties.relationshipRequired)
+#set($field["relationship"] = $relationship)
+#if($relationships.add($relationship))#end
+#set($relationship["ownerSide"] = true)
+#if($field.nestInfo.oneToOne != $null)## A-2-1
+#set($relationship.relationshipType = "one-to-one")
+#if($field.nestInfo.oneToOne.mappedBy != $null)## A-2-1-1
+#set($relationship["ownerSide"] = false)
+#end## A-2-1-1
+#elseif($field.nestInfo.oneToMany != $null)## A-2-1
+#set($relationship.relationshipType = "one-to-many")
+#if($field.nestInfo.oneToMany.mappedBy != $null)## A-2-1-1
+#set($relationship["ownerSide"] = false)
+#end## A-2-1-1
+#elseif($field.nestInfo.manyToOne != $null)## A-2-1
+#set($relationship.relationshipType = "many-to-one")
+#elseif($field.nestInfo.manyToMany != $null)## A-2-1
+#set($relationship.relationshipType = "many-to-many")
+#if($field.nestInfo.manyToMany.mappedBy != $null)## A-2-1-1
+#set($relationship["ownerSide"] = false)
+#end## A-2-1-1
+#end## A-2-1
+#set($relationship["persistableRelationship"] = $relationship["ownerSide"])
+#set($relationship["bagRelationship"] = false)
+#if($field.nestInfo.type == "collection")## A-2-2
+#if($relationship["ownerSide"])## A-2-2-1
+#set($relationship["bagRelationship"] = true)
+#set($containsBagRelationships = true)
+#end## A-2-2-1
+#set($otherEntity = $myTool.getJavaClassByClassName($field.nestInfo.ofJavaType))
+#set($relationship["collection"] = true)
+#set($relationship["otherEntity"] = {"className": $field.nestInfo.ofJavaType })
+#set($relationship["otherEntity"]["entityNameCapitalized"] = $myTool.toUpperCamelCase($myTool.getJavaTypeSimpleName($field.nestInfo.ofJavaType, false)))
+#set($relationship["otherEntity"]["entityInstance"] = $myTool.toLowerCamelCase($myTool.getJavaTypeSimpleName($field.nestInfo.ofJavaType, false)))
+#else## A-2-2
+#set($otherEntity = $myTool.getJavaClassByClassName($field.nestInfo.javaType))
+#set($relationship["collection"] = false)
+#set($relationship["otherEntity"] = {"className": $field.nestInfo.javaType })
+#set($relationship["otherEntity"]["entityNameCapitalized"] = $myTool.toUpperCamelCase($myTool.getJavaTypeSimpleName($field.nestInfo.javaType, false)))
+#set($relationship["otherEntity"]["entityInstance"] = $myTool.toLowerCamelCase($myTool.getJavaTypeSimpleName($field.nestInfo.javaType, false)))
+#end## A-2-2
+#set($otherEntityNameCapitalized = $relationship["otherEntity"]["entityNameCapitalized"])
+#if($relationshipsByOtherEntity[$otherEntityNameCapitalized] == $null)
+#set($relationshipsByOtherEntity[$otherEntityNameCapitalized] = [])
+#end
+#set($void = $relationshipsByOtherEntity[$otherEntityNameCapitalized].add($relationship))
+
+#set($relationship["otherEntity"]["persistClass"] = $myTool.getJavaTypeSimpleName($relationship["otherEntity"]["className"], true))
+#set($relationship["otherEntity"]["persistInstance"] = $myTool.toLowerCamelCase($myTool.getJavaTypeSimpleName($relationship["otherEntity"]["className"], true)))
+#set($relationship["otherEntity"]["entityInstancePlural"] = $myTool.pluralize($relationship.otherEntity.persistInstance))
+#set($relationship["otherEntity"]["embedded"] = false)## Embedded entities are not supported yet
+#set($relationship["relationshipEagerLoad"] = false)
+#if($relationship["bagRelationship"] || $global.eagerLoad)## A-2-3
+#set($relationship["relationshipEagerLoad"] = true)
+#set($relationshipsContainEagerLoad = true)
+#end## A-2-3
+#if($otherEntity != $null)## A-2-3
+#set($relationship["otherEntity"]["entityAbsolutePackage"] = $otherEntity.packageName)
+#set($relationship["otherEntity"]["entityAngularName"] = $otherEntity.simpleName)
+#set($relationship["relationshipName"] = $myTool.toLowerCamelCase($otherEntity.simpleName))
+#set($relationship["relationshipFieldName"] = $relationship["relationshipName"])
+#set($relationship["relationshipNameHumanized"] = "")
+#set($relationship["relationshipFieldNamePlural"] = $myTool.pluralize($relationship.relationshipFieldName))
+#set($relationshipNameParts = $myTool.toKebabCase($relationship.relationshipName, $null).split("-"))
+#foreach($relationshipNamePart in $relationshipNameParts)## A
+#if(!$foreach.first)## A-1
+#set($relationship.relationshipNameHumanized = "${relationship.relationshipNameHumanized} ")
+#end## A-1
+#set($upperCasePart = $myTool.toUpperCamelCase($relationshipNamePart))
+#set($relationship.relationshipNameHumanized = "${relationship.relationshipNameHumanized}${upperCasePart}")
+#end## A
+
+#set($otherEntityPrimaryField = $null)
+#foreach ($otherEntityField in $otherEntity.allFields)## A-2-3-1
+#if($otherEntityPrimaryField == $null && $otherEntityField.primaryKey)## A-2-3-1-1
+#set($otherEntityPrimaryField = $otherEntityField)
+#set($relationship["relatedField"] = {"propertyName": $otherEntityField.property})
+#set($relationship["otherEntityField"] = $otherEntityField.property)
+#if($otherEntityField.javaType == 'java.util.UUID')
+#set($relationship["relatedField"]["fieldTypeUUID"] = true)
+#elseif($otherEntityField.javaType == 'byte[]')
+#set($relationship["relatedField"]["fieldTypeBytes"] = true)
+#end
+#end## A-2-3-1-1
+#end## A-2-3-1
+#if($otherEntityPrimaryField != $null)## A-2-3-2
+#if($field.nestInfo.joinColumn != $null && $field.nestInfo.joinColumn.name != $otherEntityPrimaryField.columnName && $relationship["ownerSide"])## A-2-3-2-1 (ownerSide && otherEntity.primaryKey!.name !== otherEntityField)
+#set($relationship["relationshipEagerLoad"] = true)
+#set($relationshipsContainEagerLoad = true)
+#end## A-2-3-2-1
+#set($relationship["otherEntity"]["primaryKey"] = {"type": $myTool.getJavaTypeSimpleName($otherEntityPrimaryField.javaType, true) })
+#set($relationship["otherEntity"]["primaryKey"]["name"] = $otherEntityPrimaryField.property)
+#set($relationship["otherEntity"]["primaryKey"]["propertySupplierName"] = $myTool.getPropertyGetterName($otherEntityPrimaryField.property, $otherEntityPrimaryField.javaType))
+#set($relationship["otherEntityName"] = $myTool.toLowerCamelCase($otherEntity.simpleName))
+#if($relationship.otherEntityName == "user")
+#set($relationship["otherEntityUser"] = true)
+#else
+#set($relationship["otherEntityUser"] = false)
+#end
+#end## A-2-3-2
+#end## A-2-3
+#if($buildInUserClass == $field.nestInfo.javaType || $buildInUserClass == $field.nestInfo.ofJavaType)## A-2-4
+#set($relationship["otherEntity"]["builtInUser"] = true)
+#else## A-2-4
+#set($relationship["otherEntity"]["builtInUser"] = false)
+#end## A-2-4
+#if($field.nestInfo.mapsId != $null)## A-2-9
+#set($isUsingMapsId = true)
+#if($mapsIdAssoc == $null)## A-2-9-1
+#set($mapsIdAssoc = $relationship)
+#end## A-2-9-1
+#end## A-2-9
+#end## A-2
+#if($field.enumType)## A-3
+#set($field["enumFileName"] = $myTool.toKebabCase($myTool.getJavaTypeSimpleName($field.javaType, true), $null))
+#end## A-3
+#end## A
+##
+#set($anyPropertyHasValidation = false)
+#foreach ($field in $readDefinition.conditionFields)## A
+#if($field.conditionProperties.valueType == 'variable')## A-1
+#if($field.conditionProperties.required)## A-1-1
+#set($anyPropertyHasValidation = true)
+#end## A-1-1
+#end## A-1
+#end## A
+## Compatibility with original JHipster condition: any non-primary-key and non-transient field
+#set($anyPrimaryKeyNoField = false)
+#foreach ($field in ${currentClass.fields})## A
+#if(!$field.primaryKey)## A-1
+#set($anyPrimaryKeyNoField = true)
+#end## A-1
+#end## A
+##
+## Determine read-only mode: if create/update/delete exists, then it is not read-only
+#set($readOnly = true)
+#if($createDefinition != $null)## A
+#set($readOnly = false)
+#end## A
+#if($updateDefinition != $null)## A
+#set($readOnly = false)
+#end## A
+#if($deleteDefinition != $null)## A
+#set($readOnly = false)
+#end## A
+##
+## Service generation mode: no / serviceImpl / serviceClass
+#set($serviceNo = false)
+#set($serviceImpl = false)
+#if($global.service == "no")
+#set($serviceNo = true)
+#else
+#if($global.service == "serviceImpl")
+#set($serviceImpl = true)
+#elseif($global.service == "serviceClass")
+#end
+#end
+##
+## Determine whether eager-load APIs should be implemented
+#set($implementsEagerLoadApis = false)
+#if($global.databaseType != "cassandra" && $global.databaseType != "couchbase" && $global.databaseType != "neo4j" && ( $global.reactive || $global.databaseType == "sql" || $global.databaseType == "mongodb") && $relationshipsContainEagerLoad)
+#set($implementsEagerLoadApis = true)
+#end
+##
+## Compute Spring Data database description and reactive mode
+#set($springDataDatabase = "Unknown")
+#if($global.databaseType != "sql")## A
+#set($databaseTypeSql = true)
+#if($global.databaseType == "cassandra")## A-1
+#set($springDataDatabase = "Cassandra")
+#elseif($global.databaseType == "couchbase")## A-1
+#set($springDataDatabase = "Couchbase")
+#elseif($global.databaseType == "mongodb")## A-1
+#set($springDataDatabase = "MongoDB")
+#elseif($global.databaseType == "neo4j")## A-1
+#set($springDataDatabase = "Neo4j")
+#end## A-1
+#if($global.reactive)## A-2
+#set($springDataDescription = "Spring Data $springDataDatabase reactive")
+#else## A-2
+#set($springDataDescription = "Spring Data $springDataDatabase")
+#end## A-2
+#else## A
+#if($global.reactive)## A-1
+#set($reactive = true)
+#set($springDataDescription = "Spring Data R2DBC")
+#else## A-1
+#set($reactive = false)
+#set($springDataDescription = "Spring Data JPA")
+#end## A-1
+#end## A
+##
+## Detect DTO mode and MapStruct settings
+#if( $resultModelClass.classType == 'DTO')
+#set($dtoMapstruct = true)
+#set($dto = 'mapstruct')
+#set($dtoAny = true)
+#set($dtoClass = ${resultModelClass.simpleName})
+#set($dtoInstance = $myTool.toLowerCamelCase($dtoClass))
+#else
+#set($dtoMapstruct = false)
+#set($dto = 'no')
+#set($dtoAny = false)
+#end
+##
+## Base entity name mappings and common name variants
+#set($entityClass = ${mainModelClass.simpleName})
+#set($entityInstance = $myTool.toLowerCamelCase($entityClass))
+#set($entityAbsoluteClass = ${mainModelClass.qualifiedName})
+#set($entityClassPlural = $myTool.pluralize($entityClass))
+#set($persistClass = ${mainModelClass.simpleName})
+#set($persistInstance = $myTool.toLowerCamelCase($persistClass))
+#set($entityJpqlInstance = $myTool.toLowerCamelCase($persistClass))
+#set($restClass = ${resultModelClass.simpleName})
+#set($restInstance = $myTool.toLowerCamelCase($restClass))
+#set($camelizedBaseName = $myTool.toLowerCamelCase($global.baseName))
+#set($entityName = ${mainModelClass.simpleName})
+#set($entityNameCapitalized = $myTool.toUpperCamelCase($entityName))
+## Entity file name generation currently ignores AngularJS suffix handling
+#set($entityFileName = $myTool.toKebabCase($entityNameCapitalized, $null))
+##
+## Build i18n prefix, entity URL and microservice-related paths
+## Original logic used i18nAlertHeaderPrefix or microserviceAppName.
+## Here it is simplified to global.appName and entityFileName.
+#set($i18nAlertHeaderPrefix = "${global.appName}.$entityFileName")
+## entityUrl is an alias for entityStateName, also ignoring AngularJS suffix here
+#set($entityUrl = $myTool.toKebabCase($entityNameCapitalized, $null))
+#if($global.microserviceName == $null || $global.microserviceName == "")
+#set($entityApi = "")
+#set($clientRootFolder = "")
+#else
+#set($entityApi = "services/${global.microserviceName.toLowerCase()}/")
+#set($clientRootFolder = $global.microserviceName )
+#end
+#set($entityApiUrl = $myTool.toKebabCase($myTool.pluralize($entityName), $null))
+#set($entityInstancePlural = $myTool.pluralize($entityInstance))
+#if($clientRootFolder == "")
+#set($entityTranslationKey = $entityInstance)
+#else
+#set($entityTranslationKey = "${clientRootFolder}-$entityInstance")
+#set($entityTranslationKey = $myTool.toLowerCamelCase($entityTranslationKey))
+#end
+##
+## In OAuth2 microservices, if the entity relates to built-in User, save a user snapshot
+#set($saveUserSnapshot = false)
+#if($global.applicationType == "microservice" && $global.authenticationType == "oauth2")## A $global.applicationType == "monolith" && $global.authenticationType == "jwt"   && dto === 'no'
+#foreach($relationship in $relationships)## A-1
+#if($relationship["otherEntity"]["builtInUser"])## A-1-1
+#set($saveUserSnapshot = true)
+#end## A-1-1
+#end## A-1
+#end## A
+##
+## Hardcode some complex parameters to fixed values for later templates
+#set($skipUiGrouping = false)
+#set($searchRepositoryClass = $myTool.getJavaClass('BACKEND_SEARCH_REPOSITORY', ${mainModelClass.qualifiedName}))
+#set($criteriaClass = $myTool.getJavaClass('BACKEND_READ_REQUEST_DTO', ${mainModelClass.qualifiedName}))
+
+## Compute frontend app name, i18n key, and entity folder path
+#set($frontendAppName = $myTool.toLowerCamelCase($global.baseName))
+#if(!$frontendAppName.endsWith("App"))
+#set($frontendAppName = "${frontendAppName}App")
+#end
+## Simplified i18n prefix handling compared to original config logic
+#set($i18nKeyPrefix = "${frontendAppName}.${entityTranslationKey}")
+## Use plural entity class as humanized label for now
+#set($entityClassPluralHumanized = $entityClassPlural)
+## Build frontend folder path based on microservice name
+#if($clientRootFolder == "")
+#set($entityFolderName = ${entityFileName})
+#else
+#set($entityFolderName = "${clientRootFolder}/${entityFileName}")
+#end
+## $entityModelFileName reuses the entity folder path
+#set($entityModelFileName = $entityFolderName)
+#set($jhiPrefixDashed = $myTool.toKebabCase($global.jhiPrefix, $null))
+## entityAngularName and entityClassHumanized are simplified to current entity name
+#set($entityAngularName = $mainModelClass.simpleName)
+#set($entityClassHumanized = $entityNameCapitalized)

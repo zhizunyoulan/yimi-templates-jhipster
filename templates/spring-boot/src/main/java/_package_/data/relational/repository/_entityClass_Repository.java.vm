@@ -1,0 +1,100 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${currentClass.packageName};
+
+import ${mainModelClass.qualifiedName};
+
+#if($implementsEagerLoadApis)## A
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.repository.query.Param;
+import java.util.Optional;
+#end## A
+import org.springframework.data.jpa.repository.*;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+#if($primaryKey.typeUUID)## A
+
+import java.util.UUID;
+#end## A
+
+/**
+ * ${springDataDescription} repository for the ${persistClass} entity.
+#if($containsBagRelationships)## A
+ *
+ * When extending this class, extend ${entityClass}RepositoryWithBagRelationships too.
+ * For more information refer to https://github.com/jhipster/generator-jhipster/issues/17990.
+#end## A
+ */
+#if(!$implementsEagerLoadApis)## A
+@SuppressWarnings("unused")
+#end## A
+@Repository
+public interface ${entityClass}Repository extends #{if}($containsBagRelationships)${entityClass}RepositoryWithBagRelationships, #{end}JpaRepository<${persistClass}, ${primaryKey.type}>#{if}($jpaMetamodelFiltering), JpaSpecificationExecutor<${persistClass}>#{end} {
+#foreach($relationship in $relationships)## A
+#if($relationship.relationshipManyToOne && $relationship.otherEntityUser)## A-1
+
+    @Query("select ${entityJpqlInstance} from ${persistClass} ${entityJpqlInstance} where ${entityJpqlInstance}.${relationship.relationshipFieldName}.login = ?#{authentication.name}")
+    List<${persistClass}> findBy${relationship.relationshipNameCapitalized}IsCurrentUser();
+#end## A-1
+#end## A
+#if($implementsEagerLoadApis)## A
+#set($containsToOneEagerRelationship = false)
+#foreach ($relationship in $relationships)## A-1
+#if($relationship.relationshipEagerLoad && !$relationship.bagRelationship)## A-1-1
+#set($containsToOneEagerRelationship = true)
+#end## A-1-1
+#end## A-1
+
+    default Optional<${persistClass}> findOneWithEagerRelationships(${primaryKey.type} ${primaryKey.name}) {
+        return #{if}($containsBagRelationships)this.fetchBagRelationships(#{end}
+            this.#{if}($containsToOneEagerRelationship)findOneWithToOneRelationships#{else}findById#{end}(${primaryKey.name})#{if}(!$containsBagRelationships);#{end}
+        #{if}($containsBagRelationships)
+        );
+        #{end}
+    }
+
+    default List<${persistClass}> findAllWithEagerRelationships() {
+        return #{if}($containsBagRelationships)this.fetchBagRelationships(#{end}
+            this.#{if}($containsToOneEagerRelationship)findAllWithToOneRelationships#{else}findAll#{end}()#{if}(!$containsBagRelationships);#{end}
+        #{if}($containsBagRelationships)
+        );
+        #{end}
+    }
+
+    default Page<${persistClass}> findAllWithEagerRelationships(Pageable pageable) {
+        return #{if}($containsBagRelationships)this.fetchBagRelationships(#{end}
+            this.#{if}($containsToOneEagerRelationship)findAllWithToOneRelationships#{else}findAll#{end}(pageable)#{if}(!$containsBagRelationships);#{end}
+        #{if}($containsBagRelationships)
+        );
+        #{end}
+    }
+#if($containsToOneEagerRelationship)## A-2
+
+    @Query(value = "select ${entityJpqlInstance} from ${persistClass} ${entityJpqlInstance}#foreach($relationship in $relationships)#if($relationship.relationshipEagerLoad && !$relationship.bagRelationship) left join fetch ${entityJpqlInstance}.${relationship.propertyName}#end#end",
+        countQuery = "select count(${entityJpqlInstance}) from ${persistClass} ${entityJpqlInstance}")
+    Page<${persistClass}> findAllWithToOneRelationships(Pageable pageable);
+
+    @Query("select ${entityJpqlInstance} from ${persistClass} ${entityJpqlInstance}#foreach($relationship in $relationships)#if($relationship.relationshipEagerLoad && !$relationship.bagRelationship) left join fetch ${entityJpqlInstance}.${relationship.propertyName}#end#end")
+    List<${persistClass}> findAllWithToOneRelationships();
+
+    @Query("select ${entityJpqlInstance} from ${persistClass} ${entityJpqlInstance}#foreach($relationship in $relationships)#if($relationship.relationshipEagerLoad && !$relationship.bagRelationship) left join fetch ${entityJpqlInstance}.${relationship.propertyName}#end#end where ${entityJpqlInstance}.id =:id")
+    Optional<${persistClass}> findOneWithToOneRelationships(@Param("id") ${primaryKey.type} id);
+#end## A-2
+#end## A
+}

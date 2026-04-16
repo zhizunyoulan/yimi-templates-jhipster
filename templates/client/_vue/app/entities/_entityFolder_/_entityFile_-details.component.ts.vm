@@ -1,64 +1,64 @@
 import { defineComponent, inject, ref, type Ref } from 'vue';
-<%_ if (enableTranslation) { _%>
+#if($enableTranslation)## A
 import { useI18n } from 'vue-i18n';
-<%_ } _%>
+#end## A
 import { useRoute, useRouter } from 'vue-router';
 
-<%_ if (anyFieldIsBlobDerived) { _%>
+#if($anyFieldIsBlobDerived)## A
 import useDataUtils from '@/shared/data/data-utils.service';
-<%_ } _%>
-<%_ if (anyFieldIsDuration || anyFieldIsTimeDerived) { _%>
+#end## A
+#if($anyFieldIsDuration || $anyFieldIsTimeDerived)## A
 import { useDateFormat } from '@/shared/composables'
-<%_ } _%>
-import { type I<%= entityAngularName %> } from '@/shared/model/<%= entityModelFileName %>.model';
-import <%= entityAngularName %>Service from './<%= entityFileName %>.service';
+#end## A
+import { type I${entityAngularName} } from '@/shared/model/${entityModelFileName}.model';
+import ${entityAngularName}Service from './${entityFileName}.service';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
-  name: '<%= entityAngularName %>Details',
+  name: '${entityAngularName}Details',
   setup() {
-<%_ if (anyFieldIsDuration || anyFieldIsTimeDerived) { _%>
+#if($anyFieldIsDuration || $anyFieldIsTimeDerived)## A
     const dateFormat = useDateFormat();
-<%_ } _%>
-    const <%= entityInstance %>Service = inject('<%= entityInstance %>Service', () => new <%= entityAngularName %>Service());
+#end## A
+    const ${entityInstance}Service = inject('${entityInstance}Service', () => new ${entityAngularName}Service());
     const alertService = inject('alertService', () => useAlertService(), true);
 
-<% if (anyFieldIsBlobDerived) { %>
+#if($anyFieldIsBlobDerived)## A
     const dataUtils = useDataUtils();
-<% } %>
+#end## A
     const route = useRoute();
     const router = useRouter();
 
     const previousState = () => router.go(-1);
-    const <%= entityInstance %>: Ref<I<%= entityAngularName %>> = ref({});
+    const ${entityInstance}: Ref<I${entityAngularName}> = ref({});
 
-    const retrieve<%= entityAngularName %> = async <%= entityInstance %><%= primaryKey.nameCapitalized %> => {
+    const retrieve${entityAngularName} = async ${entityInstance}${primaryKey.nameCapitalized} => {
       try {
-        const res = await <%= entityInstance %>Service().find(<%= entityInstance %><%= primaryKey.nameCapitalized %>);
-        <%= entityInstance %>.value = res;
+        const res = await ${entityInstance}Service().find(${entityInstance}${primaryKey.nameCapitalized});
+        ${entityInstance}.value = res;
       } catch (error) {
         alertService.showHttpError(error.response);
       }
     };
 
-    if (route.params?.<%= entityInstance %>Id) {
-      retrieve<%= entityAngularName %>(route.params.<%= entityInstance %>Id);
+    if (route.params?.${entityInstance}Id) {
+      retrieve${entityAngularName}(route.params.${entityInstance}Id);
     }
 
     return {
-<%_ if (anyFieldIsDuration || anyFieldIsTimeDerived) { _%>
+#if($anyFieldIsDuration || $anyFieldIsTimeDerived)## A
       ...dateFormat,
-<%_ } _%>
+#end## A
       alertService,
-      <%= entityInstance %>,
-<% if (anyFieldIsBlobDerived) { %>
+      ${entityInstance},
+#if($anyFieldIsBlobDerived)## A
       ...dataUtils,
-<% } %>
+#end## A
       previousState,
-<%_ if (enableTranslation) { _%>
+#if($enableTranslation)## A
       t$: useI18n().t,
-<%_ } _%>
+#end## A
     };
   },
 });

@@ -1,21 +1,12 @@
-#set( $D = '$' )
 import axios from 'axios';
 #if (!$readDefinition.paginationNo)## A
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 #end## A
 import { type I${mainModel.modelName} } from '@/shared/model/${mainModel.kebabCaseModelName}.model';
 
-## Temporarily invalid
-#set($microserviceName = "")
-const baseApiUrl = '${microserviceName}api/$myTool.pluralize(${mainModel.kebabCaseModelName})';
-#set($searchEngineAny = false)
-#foreach($field in $readDefinition.select.conditionFields)## A
-#if($field.conditionProperties.valueType == 'variable')## A-1
-#set($searchEngineAny = true)
-#end## A-1
-#end## A
+const baseApiUrl = '${global.microserviceName}api/$myTool.pluralize(${mainModel.kebabCaseModelName})';
 #if ($searchEngineAny)## A
-const baseSearchApiUrl = '${microserviceName}api/$myTool.pluralize(${mainModel.kebabCaseModelName})/_search?query=';
+const baseSearchApiUrl = '${global.microserviceName}api/$myTool.pluralize(${mainModel.kebabCaseModelName})/_search?query=';
 #end## A
 
 export default class ${mainModel.modelName}Service {

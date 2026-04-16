@@ -1,0 +1,179 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${currentClass.packageName};
+
+## 原始模板中的复杂计算逻辑已由Java上下文提供以下变量：
+## - uuidMapMethod: boolean
+## - byteMapMethod: boolean
+## - dtoRelationships: List of relationship properties
+## - otherEntitiesFields: List of objects with fields {otherEntity, relatedField, collection}
+## - getOriginalField 函数的功能可通过字段的 originalField 属性直接访问
+##
+## #set($getOriginalField = "function to get original field")
+#set($uuidMapMethod = false)
+#set($byteMapMethod = false)
+#set($dtoRelationships = [])
+#set($otherEntities = [])
+#set($otherEntitiesFields = [])
+#set($anyDtoRelationshipsCollection = false)
+## 初始化变量
+#foreach($relationship in $relationships)
+    #if($relationship.relatedField != $null && $relationship.relatedField.fieldTypeUUID)
+        #set($uuidMapMethod = true)
+    #end
+    #if($relationship.relatedField != $null && $relationship.relatedField.fieldTypeBytes)
+        #set($byteMapMethod = true)
+    #end
+    #if($relationship.relationshipName != $null && !$relationship.otherEntity.embedded)
+        #set($void = $dtoRelationships.add($relationship))
+        #set($relationship.otherEntity["relationshipRelatedField"] = $relationship["relatedField"])
+        #set($void = $otherEntities.add($relationship.otherEntity))
+    #end
+    #if($relationship.collection)
+        #set($anyDtoRelationshipsCollection = true)
+    #end
+#end
+#set($otherEntities = $myTool.deduplicate($otherEntities))
+## 构建 otherEntitiesFields
+#foreach($otherEntity in $otherEntities)
+    #set($fieldObj = {})
+    #set($void = $fieldObj.put("otherEntity", $otherEntity))
+    #set($void = $fieldObj.put("relatedField", $otherEntity["relationshipRelatedField"]))
+    #set($void = $fieldObj.put("collection", $relationship["collection"]))
+    #set($void = $otherEntitiesFields.add($fieldObj))
+#end
+
+#if($anyDtoRelationshipsCollection)## A
+import java.util.Set;
+import java.util.stream.Collectors;
+#end## A
+
+import ${entityAbsoluteClass};
+import ${resultModelClass.qualifiedName};
+
+#foreach($relationship in $dtoRelationships)## A
+#set($otherEntity = $relationship.otherEntity)
+#if($otherEntity.className != $currentClass.qualifiedName)## A-1
+import ${otherEntity.className};
+#set($otherDtoClass = $myTool.getJavaClass('BACKEND_READ_RESULT_DTO', $otherEntity.className))
+#if($otherDtoClass != $null)## A-1-1
+import ${otherDtoClass.qualifiedName};
+## import ${otherEntity.entityAbsolutePackage}.service.dto.${otherEntity.dtoClass};
+#end## A-1-1
+#end## A-1
+#end## A
+
+import org.mapstruct.*;
+#if($uuidMapMethod)## A
+
+import java.util.Objects;
+import java.util.UUID;
+#end## A
+
+/**
+ * Mapper for the entity {@link ${persistClass}} and its DTO {@link ${dtoClass}}.
+ */
+@Mapper(componentModel = "spring")
+public interface ${entityClass}Mapper extends EntityMapper<${dtoClass}, ${persistClass}> {
+#if(!$embedded)## A
+#set($renMapAnotEnt = false)## A-1
+#foreach($relationship in $dtoRelationships)## A-2
+#set($renMapAnotEnt = true)## A-2-1
+#set($qualifiedByName = "${relationship.otherEntity.entityInstance}$myTool.toUpperCamelCase($relationship.otherEntityField)")## A-2-1
+#set($qualifiedByName = "${qualifiedByName}#{if}($relationship.collection)Set#{end}")## A-2-1
+    @Mapping(target = "${relationship.propertyName}", source = "${relationship.propertyName}", qualifiedByName="${qualifiedByName}")
+#end## A-2
+#foreach($field in $fields)## A-2
+#if($field.mapstructExpression)## A-2-1
+#set($renMapAnotEnt = true)## A-2-1
+    @Mapping( target = "${field.propertyName}", expression = "${field.mapstructExpression}")
+#end## A-2-1
+#end## A-2
+#if($renMapAnotEnt)## A-2
+    ${dtoClass} toDto(${persistClass} s);
+#end## A-2
+
+#set($renMapAnotDto = false)## A-3
+#if($primaryKey.ids.size() > 1)## A-4
+#set($renMapAnotDto = true)## A-4-1
+#foreach($id in $primaryKey.ids)## A-4-1-1
+    @Mapping(target = "id.${id.name}", source = "${id.nameDotted}")
+#end## A-4-1-1
+#end## A-4
+#foreach($relationship in $dtoRelationships)## A-4
+#if(!$relationship.ownerSide)## A-4-1
+#set($renMapAnotDto = true)## A-4-1
+    @Mapping(target = "${relationship.propertyName}", ignore = true)
+#end## A-4-1
+#if($relationship.collection && $fluentMethods)## A-4-1
+#set($renMapAnotDto = true)## A-4-1
+    @Mapping(target = "remove${relationship.relationshipNameCapitalized}", ignore = true)
+#end## A-4-1
+#end## A-4
+#if($renMapAnotDto)## A-4
+    ${persistClass} toEntity(${dtoClass} ${dtoInstance});
+#end## A-4
+#foreach($item in $otherEntitiesFields)## A-5
+#set($otherEntity = $item.otherEntity)## A-5-1
+#set($relatedField = $item.relatedField)## A-5-1
+#set($collection = $item.collection)## A-5-1
+#set($upperRelatedFieldPropertyName = $myTool.toUpperCamelCase($relatedField.propertyName))
+#set($mapperName = "${otherEntity.entityInstance}${upperRelatedFieldPropertyName}")
+#set($otherDtoClass = $myTool.getJavaClass('BACKEND_READ_RESULT_DTO', $otherEntity.className))
+
+    @Named("${mapperName}")
+    @BeanMapping(ignoreByDefault = true)
+#foreach($field in $otherEntity.primaryKey.fields)## A-5-2
+    @Mapping(target = "${field.propertyName}", source = "${field.propertyName}")
+#end## A-5-2
+#if(!$relatedField.id)## A-5-2
+#if($relatedField.mapstructExpression)## A-5-2-1
+    @Mapping(target = "${relatedField.propertyName}", expression = "${relatedField.mapstructExpression}")
+#else## A-5-2-1
+    @Mapping(target = "${relatedField.propertyName}", source = "${relatedField.propertyName}")
+#end## A-5-2-1
+#end## A-5-2
+#if($relatedField.mapstructExpression)## A-5-2
+    ${otherDtoClass.simpleName} toDto$myTool.toUpperCamelCase($mapperName)(${otherEntity.persistClass} s);
+#else## A-5-2
+    ${otherDtoClass.simpleName} toDto$myTool.toUpperCamelCase($mapperName)(${otherEntity.persistClass} ${otherEntity.persistInstance});
+#end## A-5-2
+#if($collection)## A-5-2
+#set($upperRelatedFieldPropertyName = $myTool.toUpperCamelCase($relatedField.propertyName))
+#set($collectionMapperName = "${otherEntity.entityInstance}${upperRelatedFieldPropertyName}Set")## A-5-2-1
+
+    @Named("${collectionMapperName}")
+    default Set<${otherEntity.dtoClass}> toDto$myTool.toUpperCamelCase($mapperName)Set(Set<${otherEntity.persistClass}> ${otherEntity.persistInstance}) {
+        return ${otherEntity.persistInstance}.stream().map(this::toDto$myTool.toUpperCamelCase($mapperName)).collect(Collectors.toSet());
+    }
+#end## A-5-2-1
+#end## A-5
+#if($uuidMapMethod)## A-6
+
+    default String map(UUID value) {
+        return Objects.toString(value, null);
+    }
+#end## A-6
+#if($byteMapMethod)## A-7
+
+    default String map(byte[] value) {
+        return new String(value);
+    }
+#end## A-7
+#end## A
+}

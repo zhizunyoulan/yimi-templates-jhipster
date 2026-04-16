@@ -1,42 +1,104 @@
-#**
- Copyright 2013-2025 the original author or authors from the JHipster project.
-
- This file is part of the JHipster project, see https://www.jhipster.tech/
- for more information.
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-      https://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-*#
-
-export interface I${mainModel.modelName} {
-#foreach ($field in ${mainModel.fields})## A
-#if($field.selectProperties.propAlias != $null)## A-1
-#set( $propAlias = ${field.selectProperties.propAlias} )
-#else## A-1
-#set( $propAlias = ${field.property} )
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## #set($variablesWithTypes = $generateEntityClientFields($primaryKey, $fields.stream().filter(field -> !$field.id).collect(Collectors.toList()), $relationships, $dto, 'Date', $embedded))
+#set($variablesWithTypes = [])
+## 模拟generateEntityClientFields函数
+#if($primaryKeyField != $null && !$embedded)## A
+#set($tsKeyType = $myTool.getTsTypeForJavaType($primaryKeyField.javaType))
+#set($variablesWithType = "id?: ${tsKeyType}")
+#set($void = $variablesWithTypes.add($variablesWithType))
+#end## A
+#foreach($field in $mainModel.fields)## A
+#if(!$field.primaryKey && $field.nestInfo == $null)## A-1
+#set($tsType = "any")
+#if($field.enumType)## A-1-1
+#set($tsType = "keyof typeof ${field.fieldType}")
+#elseif($field.fieldType == "LocalDate" || $field.fieldType == "Instant" || $field.fieldType == "ZonedDateTime")## A-1-1
+#set($tsType = "Date")
+#else## A-1-1
+#set($tsType = $myTool.getTsTypeForJavaType($field.javaType))
+## 未判断field.fieldTypeBlobContent !== 'text'
+#if(($field.fieldType == "byte[]" || $field.fieldType == "ByteBuffer"))## A-1-1-1
+#if($field.nullable)## A-1-1-1-1
+#set($blobTsType = "${field.fieldName}ContentType?: string | null")
+#else## A-1-1-1-1
+#set($blobTsType = "${field.fieldName}ContentType?: string")
+#end## A-1-1-1-1
+#set($void = $variablesWithTypes.add($blobTsType))
+#end## A-1-1-1
+#end## A-1-1
+#if($field.nullable)## A-2
+#set($tsType = "${tsType} | null")
+#end## A-2
+#set($variablesWithType = "${field.fieldName}?: ${tsType}")
+#set($void = $variablesWithTypes.add($variablesWithType))
 #end## A-1
-  $propAlias?: $myTool.getTsTypeForJavaType($field.javaType);
+#end## A
+#foreach($relationship in $relationships)## A
+#if($relationship.persistableRelationship || $relationship.relationshipEagerLoad)## A-1
+#if($relationship.relationshipType == "one-to-many" || $relationship.relationshipType == "many-to-many")## A-1-1
+#set($rFieldType = "I${relationship.otherEntity.entityAngularName}[]")
+#set($rFieldName = "I${relationship.otherEntity.entityAngularName}[]")
+#else## A-1-1
+#set($rFieldType = "I${relationship.relationshipFieldNamePlural}")
+#set($rFieldName = "I${relationship.relationshipFieldName}")
+#end## A-1-1
+#if(!$relationship.required)## A-1-2
+#set($rFieldType = "${rFieldType} | null")
+#end## A-1-2
+#set($relationTsType = "${rFieldName}?: ${rFieldType}")
+#set($void = $variablesWithTypes.add($relationTsType))
+#end## A-1
+#end## A
+## #set($typeImports = $generateEntityClientImports($relationships, $dto))
+#set($typeImports = {})
+## #set($defaultVariablesValues = $generateEntityClientFieldDefaultValues($fields.stream().filter(field -> !$field.id).collect(Collectors.toList())))
+#set($defaultVariablesValues = [])
+## #set($enumImports = $generateEntityClientEnumImports($fields.stream().filter(field -> !$field.id).collect(Collectors.toList())))
+#set($enumImports = {})
+
+#foreach($entry in $typeImports.entrySet())## A
+#set($importedPath = $entry.value)
+#set($importedPath = $importedPath.replace('core/user/user.model', 'shared/model/user.model'))
+#set($importedPath = $importedPath.replace('app/', '@/'))
+#set($importedType = $entry.key)
+#if($importedType != "I${entityAngularName}")## A-1
+import { type ${importedType} } from '${importedPath}';
+#end## A-1
+#end## A
+#foreach($entry in $enumImports.entrySet())## A
+import { type ${entry.key} } from '${entry.value}';
+#end## A
+
+export interface I${entityAngularName} {
+#foreach($var in $variablesWithTypes)## A
+    ${var};
 #end## A
 }
 
-export class ${mainModel.modelName} implements I${mainModel.modelName} {
-  constructor(
-#foreach ($field in ${mainModel.fields})## A
-#if($field.selectProperties.propAlias != $null)## A-1
-#set( $propAlias = ${field.selectProperties.propAlias} )
-#else## A-1
-#set( $propAlias = ${field.property} )
-#end## A-1
-    public $propAlias: $myTool.getTsTypeForJavaType($field.javaType),
+export class ${entityAngularName} implements I${entityAngularName} {
+    constructor(
+#foreach($var in $variablesWithTypes)## A
+        public ${var}#if($foreach.hasNext),#end
 #end## A
-  ) {}
+    ) {
+#foreach($val in $defaultVariablesValues)## A
+        ${val}
+#end## A
+    }
 }

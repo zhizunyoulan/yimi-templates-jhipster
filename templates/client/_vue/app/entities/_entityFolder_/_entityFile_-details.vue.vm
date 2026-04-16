@@ -1,92 +1,110 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
 <template>
-    <div class="row justify-content-center">
+    <div class="d-flex justify-content-center">
         <div class="col-8">
-            <div v-if="<%= entityInstance %>">
-                <h2 class="jh-entity-heading" data-cy="<%= entityInstance %>DetailsHeading"><span v-text="t$('<%= i18nKeyPrefix %>.detail.title')"><%= entityAngularName %></span> {{<%= entityInstance %>.<%= primaryKey.name %>}}</h2>
-                <dl class="row jh-entity-details">
-<%_ for (field of fields.filter(field => !field.id)) {
-    const fieldName = field.fieldName;
-    const fieldType = field.fieldType;_%>
+            <div v-if="${entityInstance}">
+                <h2 class="jh-entity-heading" data-cy="${entityInstance}DetailsHeading"><span>{{ t$('${i18nKeyPrefix}.detail.title') }}${entityAngularName}</span> {{${entityInstance}.${primaryKey.name}}}</h2>
+                <dl class="row-md jh-entity-details">
+#foreach($field in $mainModel.fields)## A
+#if(!$field.primaryKey)## A-1
+#set($fieldName = $field.fieldName)
+#set($fieldType = $field.fieldType)
                     <dt>
-                        <span v-text="t$('<%= i18nKeyPrefix %>.<%= fieldName %>')"><%= field.fieldNameHumanized %></span>
+                        <span>{{ t$('${i18nKeyPrefix}.${fieldName}') }}</span>
                     </dt>
                     <dd>
-  <%_ if (field.fieldIsEnum) { _%>
-                        <span v-text="t$('<%= frontendAppName %>.<%= fieldType %>.' + <%= entityInstance %>.<%= fieldName %>)">{{<%= entityInstance %>.<%= fieldName %>}}</span>
-  <%_ } else if (field.fieldTypeBinary && field.blobContentTypeImage) { _%>
-                        <div v-if="<%= entityInstance %>.<%= fieldName %>">
-                            <a @click="openFile(<%= entityInstance %>.<%= fieldName %>ContentType, <%= entityInstance %>.<%= fieldName %>)">
-                                <img :src="'data:' + <%=entityInstance %>.<%= fieldName %>ContentType + ';base64,' + <%= entityInstance %>.<%= fieldName %>" style="max-width: 100%;" alt="<%=entityInstance %>"/>
+#if($field.fieldIsEnum)## A-1-1
+                        <span>#{if}($enableTranslation){{ t$('${frontendAppName}.${fieldType}.' + ${entityInstance}.${fieldName}) }}#{else}{{ ${entityInstance}.${fieldName} }}#{end}</span>
+#elseif($field.fieldTypeBinary && $field.blobContentTypeImage)## A-1-1
+                        <div v-if="${entityInstance}.${fieldName}">
+                            <a @click="openFile(${entityInstance}.${fieldName}ContentType, ${entityInstance}.${fieldName})">
+                                <img :src="'data:' + ${entityInstance}.${fieldName}ContentType + ';base64,' + ${entityInstance}.${fieldName}" style="max-width: 100%;" alt="${entityInstance}"/>
                             </a>
-                            {{<%= entityInstance %>.<%= fieldName %>ContentType}}, {{byteSize(<%= entityInstance %>.<%= fieldName %>)}}
+                            {{${entityInstance}.${fieldName}ContentType}}, {{byteSize(${entityInstance}.${fieldName})}}
                         </div>
-  <%_ } else if (field.fieldTypeBinary && field.blobContentTypeAny) { _%>
-                        <div v-if="<%= entityInstance %>.<%= fieldName %>">
-                            <a @click="openFile(<%= entityInstance %>.<%= fieldName %>ContentType, <%= entityInstance %>.<%= fieldName %>)" v-text="t$('entity.action.open')">open</a>
-                            {{<%= entityInstance %>.<%= fieldName %>ContentType}}, {{byteSize(<%= entityInstance %>.<%= fieldName %>)}}
+#elseif($field.fieldTypeBinary && $field.blobContentTypeAny)## A-1-1
+                        <div v-if="${entityInstance}.${fieldName}">
+                            <a @click="openFile(${entityInstance}.${fieldName}ContentType, ${entityInstance}.${fieldName})">{{ t$('entity.action.open') }}</a>
+                            {{${entityInstance}.${fieldName}ContentType}}, {{byteSize(${entityInstance}.${fieldName})}}
                         </div>
-  <%_ } else if (field.fieldTypeDuration) { _%>
-                        <span>{{formatDuration(<%= entityInstance %>.<%= fieldName %>)}} ({{<%= entityInstance %>.<%= fieldName %>}})</span>
-  <%_ } else if (field.fieldTypeTimed) { _%>
-                        <span v-if="<%= entityInstance %>.<%=fieldName %>">{{formatDateLong(<%= entityInstance %>.<%=fieldName %>)}}</span>
-  <%_ } else { _%>
-                        <span>{{<%= entityInstance %>.<%= fieldName %>}}</span>
-  <%_ } _%>
+#elseif($field.fieldTypeDuration)## A-1-1
+                        <span>{{formatDuration(${entityInstance}.${fieldName})}} ({{${entityInstance}.${fieldName}}})</span>
+#elseif($field.fieldTypeTimed)## A-1-1
+                        <span v-if="${entityInstance}.${fieldName}">{{formatDateLong(${entityInstance}.${fieldName})}}</span>
+#else## A-1-1
+                        <span>{{${entityInstance}.${fieldName}}}</span>
+#end## A-1-1
                     </dd>
-<%_ } _%>
-<%_ for (relationship of relationships.filter(rel => !rel.otherEntity.embedded)) {
-    const relationshipName = relationship.relationshipName;
-    const relationshipFieldName = relationship.relationshipFieldName;
-    const relationshipFieldNamePlural = relationship.relationshipFieldNamePlural;
-    const relationshipNameHumanized = relationship.relationshipNameHumanized;
-    const otherEntityName = relationship.otherEntityName;
-    const otherEntityField = relationship.otherEntityField;
-    const otherEntityAngularName = relationship.otherEntityAngularName; _%>
-  <%_ if (relationship.persistableRelationship) { _%>
+#end## A-1
+#end## A
+#foreach($relationship in $relationships)## A
+#if(!$relationship.otherEntity.embedded && $relationship.persistableRelationship)## A-1
+#set($relationshipName = $relationship.relationshipName)
+#set($relationshipFieldName = $relationship.relationshipFieldName)
+#set($relationshipFieldNamePlural = $relationship.relationshipFieldNamePlural)
+#set($relationshipNameHumanized = $relationship.relationshipNameHumanized)
+#set($otherEntityName = $relationship.otherEntityName)
+#set($otherEntityField = $relationship.otherEntityField)
                     <dt>
-                        <span v-text="t$('<%= i18nKeyPrefix %>.<%= relationshipName %>')"><%= relationshipNameHumanized %></span>
+                        <span>{{ t$('${i18nKeyPrefix}.${relationshipName}') }}</span>
                     </dt>
                     <dd>
-    <%_ if (relationship.otherEntityUser) { _%>
-      <%_ if (relationship.relationshipManyToMany) { _%>
-                        <span v-for="(<%= relationshipFieldName %>, i) in <%= entityInstance %>.<%= relationshipFieldNamePlural %>" :key="<%= relationshipFieldName %>.<%= relationship.otherEntity.primaryKey.name %>">{{i > 0 ? ', ' : ''}}
-                            {{<%= relationshipFieldName %>.<%= otherEntityField %>}}
+#if($relationship.otherEntityUser)## A-1-1
+#if($relationship.relationshipManyToMany)## A-1-1-1
+                        <span v-for="(${relationshipFieldName}, i) in ${entityInstance}.${relationshipFieldNamePlural}" :key="${relationshipFieldName}.${relationship.otherEntity.primaryKey.name}">{{i > 0 ? ', ' : ''}}
+                            {{${relationshipFieldName}.${otherEntityField}}}
                         </span>
-      <%_ } else { _%>
-                        {{<%= entityInstance + "." + relationshipFieldName %> ? <%= entityInstance + "." + relationshipFieldName + "." + otherEntityField%> : ''}}
-      <%_ } _%>
-    <%_ } else { _%>
-      <%_ if (relationship.relationshipManyToMany) { _%>
-                        <span v-for="(<%= relationshipFieldName %>, i) in <%= entityInstance %>.<%= relationshipFieldNamePlural %>" :key="<%= relationshipFieldName %>.<%= relationship.otherEntity.primaryKey.name %>">{{i > 0 ? ', ' : ''}}
-                            <router-link :to="{name: '<%= otherEntityAngularName %>View', params: {<%= otherEntityName %>Id: <%= relationshipFieldName %>.<%= relationship.otherEntity.primaryKey.name %>}}">{{<%= relationshipFieldName + "." + otherEntityField %>}}</router-link>
+#else## A-1-1-1
+                        {{${entityInstance}.${relationshipFieldName} ? ${entityInstance}.${relationshipFieldName}.${otherEntityField} : ''}}
+#end## A-1-1-1
+#else## A-1-1
+#if($relationship.relationshipManyToMany)## A-1-1-1
+                        <span v-for="(${relationshipFieldName}, i) in ${entityInstance}.${relationshipFieldNamePlural}" :key="${relationshipFieldName}.${relationship.otherEntity.primaryKey.name}">{{i > 0 ? ', ' : ''}}
+                            <router-link :to="{name: '${relationship.otherEntity.entityAngularName}View', params: {${otherEntityName}Id: ${relationshipFieldName}.${relationship.otherEntity.primaryKey.name}}}">{{${relationshipFieldName}.${otherEntityField}}}</router-link>
                         </span>
-      <%_ } else { _%>
-                        <div v-if="<%= entityInstance + '.' + relationshipFieldName %>">
-                            <router-link :to="{name: '<%= otherEntityAngularName %>View', params: {<%= otherEntityName %>Id: <%= entityInstance + "." + relationshipFieldName %>.<%= relationship.otherEntity.primaryKey.name %>}}">{{<%= entityInstance + "." + relationshipFieldName + "." + otherEntityField %>}}</router-link>
+#else## A-1-1-1
+                        <div v-if="${entityInstance}.${relationshipFieldName}">
+                            <router-link :to="{name: '${relationship.otherEntity.entityAngularName}View', params: {${otherEntityName}Id: ${entityInstance}.${relationshipFieldName}.${relationship.otherEntity.primaryKey.name}}}">{{${entityInstance}.${relationshipFieldName}.${otherEntityField}}}</router-link>
                         </div>
-      <%_ } _%>
-    <%_ } _%>
+#end## A-1-1-1
+#end## A-1-1
                     </dd>
-  <%_ } _%>
-<%_ } _%>
+#end## A-1
+#end## A
                 </dl>
                 <button type="submit"
                         @click.prevent="previousState()"
                         class="btn btn-info"
                         data-cy="entityDetailsBackButton">
-                    <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.back')"> Back</span>
+                    <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span>{{ t$('entity.action.back') }}</span>
                 </button>
-<%_ if (!readOnly) { _%>
-                <router-link v-if="<%= entityInstance %>.<%= primaryKey.name %>" :to="{name: '<%= entityAngularName %>Edit', params: {<%= entityInstance %>Id: <%= entityInstance %>.<%= primaryKey.name %>}}" custom v-slot="{ navigate }">
+#if(!$readOnly)## A
+                <router-link v-if="${entityInstance}.${primaryKey.name}" :to="{name: '${entityAngularName}Edit', params: {${entityInstance}Id: ${entityInstance}.${primaryKey.name}}}" custom v-slot="{ navigate }">
                     <button @click="navigate" class="btn btn-primary">
-                        <font-awesome-icon icon="pencil-alt"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.edit')"> Edit</span>
+                        <font-awesome-icon icon="pencil-alt"></font-awesome-icon>&nbsp;<span>{{ t$('entity.action.edit') }}</span>
                     </button>
                     </router-link>
-<%_ } _%>
+#end## A
             </div>
         </div>
     </div>
 </template>
 
-<script lang="ts" src="./<%= entityFileName %>-details.component.ts">
+<script lang="ts" src="./${entityFileName}-details.component.ts">
 </script>

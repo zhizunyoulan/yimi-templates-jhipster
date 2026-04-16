@@ -422,5 +422,489 @@ ${leftPart} between $startValPart and $endValPart#end## A
 #end## A
 
 
+#macro( _partials_entity_inject_template $readOnly, $viaService, $constructorName, $queryService, $isUsingMapsId, $mapsIdAssoc, $isController, $reactive )## A
+#set($beans = [])## A
+#if($viaService)## A
+#set($temp = $beans.add({"class": "${entityClass}Service", "instance": "${entityInstance}Service"}))## A-1
+#if(!$readOnly)## A-2
+#set($temp = $beans.add({"class": "${entityClass}Repository", "instance": "${entityInstance}Repository"}))## A-2-1
+#end## A-2
+#if($queryService && !$reactive)## A-3
+#set($temp = $beans.add({"class": "${entityClass}QueryService", "instance": "${entityInstance}QueryService"}))## A-3-1
+#end## A-3
+#if($isUsingMapsId && !$isController)## A-4
+#set($mapsIdRepoClass = "${mapsIdAssoc.otherEntity.entityNameCapitalized}Repository")## A-4-1
+#set($mapsIdRepoInstance = "${mapsIdAssoc.otherEntity.entityInstance}Repository")## A-4-1
+#set($temp = $beans.add({"class": $mapsIdRepoClass, "instance": $mapsIdRepoInstance}))## A-4-1
+#end## A-4
+#else## A
+#set($temp = $beans.add({"class": "${entityClass}Repository", "instance": "${entityInstance}Repository"}))## A-1
+#if($dtoMapstruct)## A-2
+#set($temp = $beans.add({"class": "${entityClass}Mapper", "instance": "${entityInstance}Mapper"}))## A-2-1
+#end## A-2
+#if($searchEngineElasticsearch)## A-3
+#set($temp = $beans.add({"class": "${entityClass}SearchRepository", "instance": "${entityInstance}SearchRepository"}))## A-3-1
+#end## A-3
+#if($isUsingMapsId)## A-4
+#set($mapsIdRepoClass = "${mapsIdAssoc.otherEntity.entityNameCapitalized}Repository")## A-4-1
+#set($mapsIdRepoInstance = "${mapsIdAssoc.otherEntity.entityInstance}Repository")## A-4-1
+#set($temp = $beans.add({"class": $mapsIdRepoClass, "instance": $mapsIdRepoInstance}))## A-4-1
+#end## A-4
+#end## A
+#if($saveUserSnapshot && ($viaService || $constructorName.endsWith('Resource')))## A
+#set($temp = $beans.add({"class": "UserRepository", "instance": "userRepository"}))## A-1
+#end## A
 
-#set($appName = "jhipsterApp")
+#foreach($bean in $beans)## A
+    private final $bean["class"] $bean.instance;
+#end## A
+
+    public ${constructorName}(
+#foreach($bean in $beans)## A
+        $bean["class"] $bean.instance#if( $foreach.hasNext ),#end
+#end## A
+    ) {
+#foreach($bean in $beans)## A
+        this.$bean.instance = $bean.instance;
+#end## A
+    }
+#end## A
+
+
+#macro( _partials_entity_get_all_stream_template $viaService )## A
+#set($mapper = $entityInstance + 'Mapper')## A
+#set($entityToDtoReference = $mapper + '::' + 'toDto')## A
+#set($reactiveSql = $databaseTypeSql && $reactive)## A
+#set($toResponseEntityPrefix = '')## A
+#set($toResponseEntityPostfix = '')## A
+#if(!$paginationNo)## A
+#if($reactiveSql)## A-1
+#set($toResponseEntityPostfix = '.map(ResponseEntity::ok)')## A-1-1
+#else## A-1
+#set($toResponseEntityPrefix = 'new ResponseEntity<>(')## A-1-1
+#set($toResponseEntityPostfix = ', HttpStatus.OK)')## A-1-1
+#end## A-1
+#end## A
+#foreach($relationship in $relationships)## A
+#if($relationship.relationshipOneToOne && !$relationship.ownerSide)## A-1
+        if ("$relationship.relationshipName.toLowerCase()-is-null".equals(filter)) {
+            LOG.debug("REST request to get all ${entityClass}s where ${relationship.relationshipName} is null");
+#if($viaService)## A-1-1
+            return ${toResponseEntityPrefix}${entityInstance}Service.findAllWhere${relationship.relationshipNameCapitalized}IsNull()#{if}($reactiveSql).collectList()#{end}${toResponseEntityPostfix};
+#else## A-1-1
+#if($reactiveSql)## A-1-1-1
+            return ${toResponseEntityPrefix}${entityInstance}Repository
+                .findAllWhere${relationship.relationshipNameCapitalized}IsNull()
+#if($dtoMapstruct)## A-1-1-1-1
+                .map(${entityToDtoReference})
+#end## A-1-1-1-1
+                .collectList()${toResponseEntityPostfix};
+#elseif($reactive)## A-1-1-1
+            return ${toResponseEntityPrefix}${entityInstance}Repository
+                .findAll()
+                .filter(${entityInstance} -> ${entityInstance}.get${relationship.relationshipNameCapitalized}() == null)
+#if($dtoMapstruct)## A-1-1-1-2
+                .map(${entityToDtoReference})
+#end## A-1-1-1-2
+                .collectList()${toResponseEntityPostfix};
+#else## A-1-1-1
+            return ${toResponseEntityPrefix}StreamSupport
+                .stream(${entityInstance}Repository.findAll().spliterator(), false)
+                .filter(${entityInstance} -> ${entityInstance}.get${relationship.relationshipNameCapitalized}() == null)
+#if($dtoMapstruct)## A-1-1-1-3
+                .map(${entityToDtoReference})
+#end## A-1-1-1-3
+#if(!$paginationNo)## A-1-1-1-4
+                .toList(), HttpStatus.OK);
+#else## A-1-1-1-4
+#if($dtoMapstruct)## A-1-1-1-4-1
+                .collect(Collectors.toCollection(LinkedList::new));
+#else## A-1-1-1-4-1
+                .toList();
+#end## A-1-1-1-4-1
+#end## A-1-1-1-4
+#end## A-1-1-1
+#end## A-1-1
+        }
+#end## A-1
+#end## A
+#end## A
+
+#macro( _partials_entity_get_all_template $viaService )## A
+#set($instanceType = $restClass)## A
+#set($instanceName = $restInstance)## A
+#set($mapper = $entityInstance + 'Mapper')## A
+#set($entityListToDtoListReference = $mapper + '.' + 'toDto')## A
+#set($entityToDtoReference = $mapper + '::' + 'toDto')## A
+#set($reactiveNoPagination = $reactive && $paginationNo)## A
+#set($reactivePagination = $reactive && !$paginationNo)## A
+#set($reactiveEntityToDto = "")## A
+#if($dtoMapstruct && !$viaService)## A-1
+#set($reactiveEntityToDto = ".map(${entityToDtoReference})")## A-1-1
+#end## A-1
+#if($jpaMetamodelFiltering)## A
+    public #{if}($reactiveNoPagination)Flux<${instanceType}>#{elseif}($reactivePagination)Mono<ResponseEntity<List<${instanceType}>>>#{else}ResponseEntity<List<${instanceType}>>#{end} getAll${entityClassPlural}(${entityClass}Criteria criteria#{if}(!$paginationNo), @org.springdoc.core.annotations.ParameterObject Pageable pageable#{if}($reactive), ServerHttpRequest request#{end}#{end}) {
+        LOG.debug("REST request to get ${entityClassPlural} by criteria: {}", criteria);
+  #if(!$reactive)## A-1
+    #if($paginationNo)## A-1-1
+        List<${instanceType}> entityList = ${entityInstance}QueryService.findByCriteria(criteria);
+        return ResponseEntity.ok().body(entityList);
+    #else## A-1-1
+        Page<${instanceType}> page = ${entityInstance}QueryService.findByCriteria(criteria, pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(#{if}(!$reactive)ServletUriComponentsBuilder.fromCurrentRequest()#{else}ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders())#{end}, page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
+    #end## A-1-1
+  #else## A-1
+    #if($paginationNo)## A-1-2
+      return ${entityInstance}Service.findByCriteria(criteria);
+    #else## A-1-2
+      return ${entityInstance}#{if}($viaService)Service.countByCriteria#{else}Repository.countByCriteria#{end}(criteria).zipWith(${entityInstance}#{if}($viaService)Service.findByCriteria#{else}Repository.findByCriteria#{end}(criteria, pageable)$reactiveEntityToDto.collectList())
+      .map(countWithEntities ->
+          ResponseEntity.ok()
+              .headers(
+                  PaginationUtil.generatePaginationHttpHeaders(
+                      ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders()),
+                      new PageImpl<>(countWithEntities.getT2(), pageable, countWithEntities.getT1())
+                  )
+              ).body(countWithEntities.getT2())
+      );
+    #end## A-1-2
+  #end## A-1
+    }
+
+    /**
+     * {@code GET  /${entityApiUrl}/count} : count all the ${entityInstancePlural}.
+     *
+     * @param criteria the criteria which the requested entities should match.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
+     */
+    @GetMapping("/count")
+    public #{if}($reactive)Mono<#{end}ResponseEntity<Long>#{if}($reactive)>#{end} count${entityClassPlural}(${entityClass}Criteria criteria) {
+    #if(!$reactive)## A-1
+        LOG.debug("REST request to count ${entityClassPlural} by criteria: {}", criteria);
+        return ResponseEntity.ok().body(${entityInstance}QueryService.countByCriteria(criteria));
+    #else## A-1
+        LOG.debug("REST request to count ${entityClassPlural} by criteria: {}", criteria);
+        return ${entityInstance}Service.countByCriteria(criteria)
+                .map(count -> ResponseEntity.status(HttpStatus.OK).body(count));
+    #end## A-1
+    }
+#else## A
+  #if($paginationNo)## A-1
+    public #{if}($reactive)Mono<#{end}List<${instanceType}>#{if}($reactive)>#{end} getAll${entityClassPlural}(#{if}($fieldsContainNoOwnerOneToOne)@RequestParam(name = "filter", required = false) String filter#{end}#{if}($implementsEagerLoadApis && $fieldsContainNoOwnerOneToOne),#{end}#{if}($implementsEagerLoadApis)@RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload#{end}) {
+## 参数：viaService
+#_partials_entity_get_all_stream_template($viaService)
+        LOG.debug("REST request to get all ${entityClassPlural}");
+    #if($viaService)## A-1-1
+        return ${entityInstance}Service.findAll()#{if}($reactive).collectList()#{end};
+    #elseif($dtoMapstruct)## A-1-1
+        ${emptyStr}#{if}($reactive)Flux#{else}List#{end}<${persistClass}> ${entityInstancePlural} = ${entityInstance}Repository.findAll();
+      #if($reactive)## A-1-1-1
+        return ${entityInstancePlural}.map(${entityToDtoReference}).collectList();
+      #else## A-1-1-1
+        return ${entityListToDtoListReference}(${entityInstancePlural});
+      #end## A-1-1-1
+    #elseif($implementsEagerLoadApis)## A-1-1
+        if (eagerload) {
+            return ${entityInstance}Repository.findAllWithEagerRelationships()#{if}($reactive).collectList()#{end};
+        } else {
+            return ${entityInstance}Repository.findAll()#{if}($reactive).collectList()#{end};
+        }
+    #else## A-1-1
+            return ${entityInstance}Repository.findAll()#{if}($reactive).collectList()#{end};
+    #end## A-1-1
+  #else## A-1
+    public #{if}($reactive)Mono<ResponseEntity<List<${instanceType}>>>#{else}ResponseEntity<List<${instanceType}>>#{end} getAll${entityClassPlural}(@org.springdoc.core.annotations.ParameterObject Pageable pageable#{if}($reactive), ServerHttpRequest request#{end}#{if}($fieldsContainNoOwnerOneToOne), @RequestParam(name = "filter", required = false) String filter#{end}#{if}($implementsEagerLoadApis), @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload#{end}) {
+## 参数：viaService
+#_partials_entity_get_all_stream_template($viaService)
+        LOG.debug("REST request to get a page of ${entityClassPlural}");
+    #if($reactive)## A-1-2
+        return ${entityInstance}#{if}($viaService)Service.countAll#{else}Repository.count#{end}().zipWith(${entityInstance}#{if}($viaService)Service.findAll#{else}Repository.findAllBy#{end}(pageable)$reactiveEntityToDto.collectList())
+                .map(countWithEntities ->
+                    ResponseEntity.ok()
+                        .headers(
+                            PaginationUtil.generatePaginationHttpHeaders(
+                                ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders()),
+                                new PageImpl<>(countWithEntities.getT2(), pageable, countWithEntities.getT1())
+                            )
+                        ).body(countWithEntities.getT2())
+                );
+    #else## A-1-2
+      #if($implementsEagerLoadApis)## A-1-2-1
+        Page<${instanceType}> page;
+        if (eagerload) {
+            page = ${entityInstance}#{if}($viaService)Service#{else}Repository#{end}.findAllWithEagerRelationships(pageable)$reactiveEntityToDto;
+        } else {
+            page = ${entityInstance}#{if}($viaService)Service#{else}Repository#{end}.findAll(pageable)$reactiveEntityToDto;
+        }
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(#{if}($reactive)ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders())#{else}ServletUriComponentsBuilder.fromCurrentRequest()#{end}, page);
+      #else## A-1-2-1
+        Page<${instanceType}> page = ${entityInstance}#{if}($viaService)Service#{else}Repository#{end}.findAll(pageable)$reactiveEntityToDto;
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(#{if}($reactive)ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders())#{else}ServletUriComponentsBuilder.fromCurrentRequest()#{end}, page);
+      #end## A-1-2-1
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
+    #end## A-1-2
+  #end## A-1
+    }
+#end## A
+#end## A
+
+
+
+#macro( _partials_entity_get_template $viaService $returnDirectly $implementsEagerLoadApis )## A
+#{if}($reactive)
+#set($optionalOrMono = 'Mono')## A
+#{else}
+#set($optionalOrMono = 'Optional')## A
+#{end}
+## #set($optionalOrMono = '#{if}($reactive)Mono#{else}Optional#{end}')## A
+#set($instanceType = "${optionalOrMono}<${restClass}>")## A
+#set($instanceName = $restInstance)## A
+#set($mapper = "${entityInstance}Mapper")## A
+#set($entityToDtoReference = "${mapper}::toDto")## A
+#{if}($returnDirectly)
+#set($returnPrefix = 'return')## A
+#{else}
+#set($returnPrefix = "${instanceType} ${instanceName} =")## A
+#{end}
+## #set($returnPrefix = '#{if}($returnDirectly)return#{else}${instanceType} ${instanceName} =#{end}')## A
+#if(!$viaService)## A
+        $returnPrefix ${entityInstance}Repository.#{if}($implementsEagerLoadApis)findOneWithEagerRelationships(id)#{else}findById(id)#{end}#{if}(!$dtoMapstruct);#{end}
+#{if}($dtoMapstruct)
+            .map(${entityToDtoReference});
+#{end}
+
+#else## A
+        $returnPrefix ${entityInstance}Service.findOne(id);
+#end## A
+#end## A
+
+
+#macro( _global_partials_entity_save_template $saveNewEntityOperation $returnDirectly $intent = "" )## A
+#if($dtoMapstruct)## A
+${intent}        ${persistClass} ${persistInstance} = ${entityInstance}Mapper.toEntity(${restInstance});
+#end## A
+#if(!$saveNewEntityOperation && $requiresPersistableImplementation)## A
+${intent}        ${persistInstance}.setIsPersisted();
+#end## A
+#if($saveNewEntityOperation && $isUsingMapsId)## A
+${intent}        ${mapsIdAssoc.otherEntity.primaryKey.type} ${mapsIdAssoc.otherEntityName}Id = ${persistInstance}.${mapsIdAssoc.propertySupplierName}().${mapsIdAssoc.otherEntity.primaryKey.propertySupplierName}();
+${intent}        ${mapsIdAssoc.otherEntity.entityInstance}Repository.findById(${mapsIdAssoc.otherEntityName}Id).ifPresent(${persistInstance}::#{if}(!$fluentMethods)${mapsIdAssoc.propertyConsumerName}#{else}${mapsIdAssoc.relationshipName}#{end});
+#end## A
+#{if}($returnDirectly && !$searchEngineElasticsearch && !$dtoMapstruct)
+#set($tempReturn = "return")
+#{else}
+#set($tempReturn = "${persistInstance} =")
+#{end}
+${intent}        $tempReturn ${entityInstance}Repository.save(${persistInstance});
+#if($searchEngineElasticsearch)## A
+${intent}        ${entityInstance}SearchRepository.index(${persistInstance});
+#end## A
+#if($dtoMapstruct)## A
+${intent}        #{if}($returnDirectly)return#{else}${dtoInstance} =#{end} ${entityInstance}Mapper.toDto(${persistInstance});
+#elseif($returnDirectly && $searchEngineElasticsearch)## A
+${intent}        return ${persistInstance};
+#end## A
+#end## A
+
+
+#macro( _partials_entity_delete_template $viaService $fromResource )## A
+#if($reactive)## A
+        return ${entityInstance}#{if}($viaService)Service.delete#{else}Repository.deleteById#{end}(id)
+#if(!$viaService && $searchEngineElasticsearch)## A-1
+            .then(${entityInstance}SearchRepository.deleteById(id))
+#end## A-1
+#if(!$fromResource)## A-2
+        ;
+#end## A-2
+#else## A
+        ${entityInstance}#{if}($viaService)Service.delete#{else}Repository.deleteById#{end}(id);
+#if(!$viaService && $searchEngineElasticsearch)## A-1
+        ${entityInstance}SearchRepository.deleteFromIndexById(id);
+#end## A-1
+#end## A
+#end## A
+
+
+#macro( _partials_entity_patch_template $isService $viaService $intent = "")## A
+#set($instanceType = $restClass)## A
+#set($instanceName = $restInstance)## A
+#set($returnType = "#if($reactive)Mono#{else}Optional#{end}")## A
+#set($mapOrFlatMap = "#if($reactive)flatMap#{else}map#{end}")## A
+#set($returnPrefix = "#if($isService)return#{else}${returnType}<${instanceType}> result =#{end}")## A
+#set($mapper = $entityInstance + 'Mapper')## A
+## 预先计算是否存在非ID非瞬态字段
+#set($hasNonIdNonTransientFields = false)## A
+#foreach($field in $fields)## A-1
+#if(!$field.id && !$field.transient)## A-1-1
+#set($hasNonIdNonTransientFields = true)## A-1-1-1
+#end## A-1-1
+#end## A-1
+
+#if($viaService)## A
+  #if($reactive)## A-1
+${intent}    Mono<${instanceType}> result = ${entityInstance}Service.partialUpdate(${instanceName});
+  #else## A-1
+${intent}    Optional<${instanceType}> result = ${entityInstance}Service.partialUpdate(${instanceName});
+  #end## A-1
+#else## A
+${intent}  $returnPrefix ${entityInstance}Repository.findById(${instanceName}.${primaryKey.propertySupplierName}())
+  #if($dtoMapstruct || $hasNonIdNonTransientFields)## A-1
+${intent}    .map(existing${entityClass} -> {
+  #if($dtoMapstruct)## A-1-1
+${intent}       ${mapper}.partialUpdate(existing${entityClass}, ${instanceName});
+  #else## A-1-1
+    #foreach($field in $fields)## A-1-1-1
+      #if(!$field.id && !$field.transient)## A-1-1-1-1
+${intent}        updateIfPresent(existing${entityClass}::${field.propertyConsumerName}, ${instanceName}.${field.propertySupplierName}());
+        #if($field.fieldWithContentType)## A-1-1-1-1-1
+${intent}        updateIfPresent(existing${entityClass}::${field.propertyConsumerName}ContentType, ${instanceName}.${field.propertySupplierName}ContentType());
+        #end## A-1-1-1-1-1
+      #end## A-1-1-1-1
+    #end## A-1-1-1
+  #end## A-1-1
+${intent}    return existing${entityClass};
+${intent}    })
+  #end## A-1
+${intent}  .${mapOrFlatMap}(${entityInstance}Repository::save)
+  #if($searchEngineElasticsearch)## A-2
+${intent}    .${mapOrFlatMap}(saved${entityClass} -> {
+    #if($reactive)## A-2-1
+${intent}        ${entityInstance}SearchRepository.save(saved${entityClass});
+${intent}        return Mono.just(saved${entityClass});
+    #else## A-2-1
+${intent}        ${entityInstance}SearchRepository.index(saved${entityClass});
+${intent}        return saved${entityClass};
+    #end## A-2-1
+${intent}      })
+  #end## A-2
+  #if($dtoMapstruct)## A-3
+${intent}   .map(${mapper}::toDto)
+  #end## A-3
+${intent}  ;
+#end## A
+#end## A
+
+#macro( _partials_entity_get_filtered_template )## A
+#set($instanceType = $restClass)
+#set($mapper = $entityInstance + 'Mapper')
+#set($entityToDtoReference = $mapper + '::' + 'toDto')
+#set($reactiveSql = $databaseTypeSql && $reactive)
+#foreach($relationship in $relationships)## A
+#if($relationship.relationshipOneToOne && !$relationship.ownerSide)## A-1
+
+    /**
+     *  Get all the ${entityInstancePlural} where ${relationship.relationshipNameCapitalized} is {@code null}.
+     *  @return the list of entities.
+     */
+#if($databaseTypeSql)## A-1-1
+    @Transactional(readOnly = true)
+#end## A-1-1
+    public #{if}($reactiveSql)Flux#{else}List#{end}<${instanceType}> findAllWhere${relationship.relationshipNameCapitalized}IsNull() {
+        LOG.debug("Request to get all ${entityInstancePlural} where ${relationship.relationshipNameCapitalized} is null");
+#if($reactiveSql)## A-1-2
+        return ${entityInstance}Repository.findAllWhere${relationship.relationshipNameCapitalized}IsNull()#{if}($dtoMapstruct)
+             .map(${entityToDtoReference})#{end};
+#elseif($reactive)## A-1-2
+        return ${entityInstance}Repository
+            .findAll()
+            .filter(${entityInstance} -> ${entityInstance}.${relationship.propertySupplierName}() == null)
+      #if($dtoMapstruct)## A-1-2-1
+            .map(${entityToDtoReference})
+      #end## A-1-2-1
+            ;
+#else## A-1-2
+        return StreamSupport
+            .stream(${entityInstance}Repository.findAll().spliterator(), false)
+            .filter(${entityInstance} -> ${entityInstance}.${relationship.propertySupplierName}() == null)
+      #if($dtoMapstruct)## A-1-2-1
+            .map(${entityToDtoReference})
+            .collect(Collectors.toCollection(LinkedList::new));
+      #else## A-1-2-1
+            .toList();
+      #end## A-1-2-1
+#end## A-1-2
+    }
+#end## A-1
+#end## A
+#end## A
+
+#macro( _partials_entity_search_stream_template  $viaService $fromResource )## A
+#set($mapper = $entityInstance + 'Mapper')
+#set($entityToDtoReference = $mapper + '::' + 'toDto')
+        try {
+#if(!$viaService)## A
+  #if($reactive)## A-1
+            return ${entityInstance}#{if}($searchEngineElasticsearch)Search#{end}Repository.search(query)#{if}($dtoMapstruct)
+                .map(${entityToDtoReference})#{end}#{if}($fromResource).collectList()#{end};
+  #else## A-1
+    #if($searchEngineElasticsearch)## A-1-1
+            return StreamSupport
+                .stream(${entityInstance}SearchRepository.search(query).spliterator(), false)
+    #else## A-1-1
+                return ${entityInstance}Repository.search(query)#{if}(!$dtoMapstruct);#{else}.stream()#{end}
+    #end## A-1-1
+    #{if}($dtoMapstruct)
+                .map(${entityToDtoReference})
+    #{end}
+    #{if}($dtoMapstruct || $searchEngineElasticsearch)
+                .toList();
+    #{end}
+  #end## A-1
+#else## A
+            return ${entityInstance}Service.search(query)#{if}($reactive && $fromResource).collectList()#{end};
+#end## A
+        } catch (RuntimeException e) {
+    #{if}($searchEngineElasticsearch && $fromResource)
+            throw ElasticsearchExceptionMapper.mapException(e);
+    #{else}
+            throw e;
+    #{end}
+        }
+#end## A
+
+
+#macro( _partials_entity_search_template  $viaService )## A
+#set($instanceType = $restClass)##
+#set($instanceName = $restInstance)##
+#{if}($reactive)
+#set($listOrFlux = "Flux")##
+#{else}
+#set($listOrFlux = "List")##
+#{end}
+#set($mapper = $entityInstance + 'Mapper')##
+#set($entityToDtoReference = $mapper + '::' + 'toDto')##
+#set($entityListToDtoListReference = $mapper + '.' + 'toDto')##
+#if($paginationNo)## A
+    public #{if}($reactive)Mono<#{end}List<${instanceType}>#{if}($reactive)>#{end} search${entityClassPlural}(@RequestParam("query") String query) {
+        LOG.debug("REST request to search ${entityClassPlural} for query {}", query);
+## 参数：viaService, fromResource
+#_partials_entity_search_stream_template($viaService true)
+#else## A
+    public #{if}($reactive)Mono<#{end}ResponseEntity<${listOrFlux}<${instanceType}>>#{if}($reactive)>#{end} search${entityClassPlural}(@RequestParam("query") String query, @org.springdoc.core.annotations.ParameterObject Pageable pageable#{if}($reactive), ServerHttpRequest request#{end}) {
+        LOG.debug("REST request to search for a page of ${entityClassPlural} for query {}", query);
+  #if($reactive)## A-1
+        return ${entityInstance}#{if}($viaService)Service.#{if}($searchEngineElasticsearch)searchCount#{else}countAll#{end}#{else}#{if}($searchEngineElasticsearch)Search#{end}Repository.count#{end}()
+            .map(total -> new PageImpl<>(new ArrayList<>(), pageable, total))
+            .map(page -> PaginationUtil.generatePaginationHttpHeaders(ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders()), page))
+            .map(headers -> ResponseEntity.ok().headers(headers).body(${entityInstance}#{if}($viaService)Service#{else}#{if}($searchEngineElasticsearch)Search#{end}Repository#{end}.search(query, pageable)#{if}(!$viaService && $dtoMapstruct).map(${entityToDtoReference})#{end}));
+  #else## A-1
+        try {
+    #if($viaService)## A-1-1
+            Page<${instanceType}> page = ${entityInstance}Service.search(query, pageable);
+    #else## A-1-1
+            Page<${persistClass}> page = ${entityInstance}#{if}($searchEngineElasticsearch)Search#{end}Repository.search(query, pageable);
+    #end## A-1-1
+            HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(#{if}($reactive)ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders())#{else}ServletUriComponentsBuilder.fromCurrentRequest()#{end}, page);
+            return ResponseEntity.ok().headers(headers).body(#{if}(!$viaService && $dtoMapstruct)${entityListToDtoListReference}(#{end}page.getContent()#{if}(!$viaService && $dtoMapstruct))#{end});
+        } catch (RuntimeException e) {
+    #if($searchEngineElasticsearch)## A-1-2
+            throw ElasticsearchExceptionMapper.mapException(e);
+    #else## A-1-2
+            throw new RuntimeException(e);
+    #end## A-1-2
+        }
+  #end## A-1
+#end## A
+    }
+#end## A

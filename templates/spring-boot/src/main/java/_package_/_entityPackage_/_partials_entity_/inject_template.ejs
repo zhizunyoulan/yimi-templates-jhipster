@@ -1,0 +1,62 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+#set($beans = [])## A
+#if($viaService)## A
+#set($temp = $beans.add({"class": "${entityClass}Service", "instance": "${entityInstance}Service"}))## A-1
+#if(!$readOnly)## A-2
+#set($temp = $beans.add({"class": "${entityClass}Repository", "instance": "${entityInstance}Repository"}))## A-2-1
+#end## A-2
+#if($queryService && !$reactive)## A-3
+#set($temp = $beans.add({"class": "${entityClass}QueryService", "instance": "${entityInstance}QueryService"}))## A-3-1
+#end## A-3
+#if($isUsingMapsId && !$isController)## A-4
+#set($mapsIdRepoClass = "${mapsIdAssoc.otherEntity.entityNameCapitalized}Repository")## A-4-1
+#set($mapsIdRepoInstance = "${mapsIdAssoc.otherEntity.entityInstance}Repository")## A-4-1
+#set($temp = $beans.add({"class": $mapsIdRepoClass, "instance": $mapsIdRepoInstance}))## A-4-1
+#end## A-4
+#else## A
+#set($temp = $beans.add({"class": "${entityClass}Repository", "instance": "${entityInstance}Repository"}))## A-1
+#if($dtoMapstruct)## A-2
+#set($temp = $beans.add({"class": "${entityClass}Mapper", "instance": "${entityInstance}Mapper"}))## A-2-1
+#end## A-2
+#if($searchEngineElasticsearch)## A-3
+#set($temp = $beans.add({"class": "${entityClass}SearchRepository", "instance": "${entityInstance}SearchRepository"}))## A-3-1
+#end## A-3
+#if($isUsingMapsId)## A-4
+#set($mapsIdRepoClass = "${mapsIdAssoc.otherEntity.entityNameCapitalized}Repository")## A-4-1
+#set($mapsIdRepoInstance = "${mapsIdAssoc.otherEntity.entityInstance}Repository")## A-4-1
+#set($temp = $beans.add({"class": $mapsIdRepoClass, "instance": $mapsIdRepoInstance}))## A-4-1
+#end## A-4
+#end## A
+#if($saveUserSnapshot && ($viaService || $constructorName.endsWith('Resource')))## A
+#set($temp = $beans.add({"class": "UserRepository", "instance": "userRepository"}))## A-1
+#end## A
+
+#foreach($bean in $beans)## A
+    private final $bean.class $bean.instance;
+#end## A
+
+    public ${constructorName}(
+#foreach($bean in $beans)## A
+        $bean.class $bean.instance#if($velocityCount != $beans.size()),#end
+#end## A
+    ) {
+#foreach($bean in $beans)## A
+        this.$bean.instance = $bean.instance;
+#end## A
+    }

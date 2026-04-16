@@ -1,0 +1,10 @@
+package ${resultModelClass.packageName};
+
+#foreach ($importType in $resultModelClass.dynamicImports)## A
+import ${importType};
+#end## A
+
+public record ${resultModelClass.simpleName}(#foreach ($field in $resultModelClass.fields)#getJavaTypeSimpleName($field.javaType) $field.property#if( !$foreach.last ),#end#end) {
+
+
+}

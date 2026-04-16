@@ -1,0 +1,189 @@
+## Copyright 2013-2026 the original author or authors from the JHipster project.
+##
+## This file is part of the JHipster project, see https://www.jhipster.tech/
+## for more information.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##      https://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+package ${currentClass.packageName};
+
+#set($instanceType = $restClass)## A
+#set($instanceName = $restInstance)## A
+#if($reactive)## A
+#set($optionalOrMono = "Mono")
+#set($listOrFlux = "Flux")
+#set($pageOrFlux = "Flux")
+#set($monoVoidOrVoid = "Mono<Void>")
+#else## A
+#set($optionalOrMono = "Optional")
+#set($listOrFlux = "List")
+#set($pageOrFlux = "Page")
+#set($monoVoidOrVoid = "void")
+#end## A
+#if($dtoMapstruct)## A
+import ${resultModelClass.qualifiedName};
+#else## A
+import ${mainModelClass.qualifiedName};
+#end## A
+#if($jpaMetamodelFiltering && $reactive)## A
+import ${requestModelClass.qualifiedName};
+#end## A
+#if(!$paginationNo || $implementsEagerLoadApis)## A
+
+#if(!$reactive)## A-1
+import org.springframework.data.domain.Page;
+#end## A-1
+import org.springframework.data.domain.Pageable;
+#end## A
+#if($reactive)## A
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+#end## A
+
+#if($paginationNo || $fieldsContainNoOwnerOneToOne)## A
+import java.util.List;
+#end## A
+#if(!$reactive)## A
+import java.util.Optional;
+#end## A
+#if($primaryKey.typeUUID)## A
+import java.util.UUID;
+#end## A
+
+/**
+ * Service Interface for managing {@link ${entityAbsoluteClass}}.
+ */
+public interface ${entityClass}Service {
+
+    /**
+     * Save a ${entityInstance}.
+     *
+     * @param ${instanceName} the entity to save.
+     * @return the persisted entity.
+     */
+    $emptyStr#{if}($reactive)Mono<#{end}${instanceType}#{if}($reactive)>#{end} save(${instanceType} ${instanceName});
+
+    /**
+     * Updates a ${entityInstance}.
+     *
+     * @param ${instanceName} the entity to update.
+     * @return the persisted entity.
+     */
+     $emptyStr#{if}($reactive)Mono<#{end}${instanceType}#{if}($reactive)>#{end} update(${instanceType} ${instanceName});
+
+    /**
+     * Partially updates a ${entityInstance}.
+     *
+     * @param ${instanceName} the entity to update partially.
+     * @return the persisted entity.
+     */
+    $emptyStr#{if}($reactive)Mono#{else}Optional#{end}<${instanceType}> partialUpdate(${instanceType} ${instanceName});
+#if(!$jpaMetamodelFiltering)## A
+
+    /**
+     * Get all the ${entityInstancePlural}.
+     *#{if}(!$paginationNo)
+     * @param pageable the pagination information.#{end}
+     * @return the list of entities.
+     */
+    $emptyStr#{if}($paginationNo)${listOrFlux}#{else}${pageOrFlux}#{end}<${instanceType}> findAll(#{if}(!$paginationNo)Pageable pageable#{end});
+
+#end## A
+#if($jpaMetamodelFiltering && $reactive)## A
+      /**
+      * Find ${entityInstancePlural} by criteria.
+      *#{if}(!$paginationNo)
+      * @param pageable the pagination information.#{end}
+      * @return the list of entities.
+      */
+      $emptyStr#{if}($paginationNo)${listOrFlux}#{else}${pageOrFlux}#{end}<${instanceType}> findByCriteria(${entityClass}Criteria criteria#{if}(!$paginationNo), Pageable pageable#{end});
+
+      /**
+      * Find the count of ${entityInstancePlural} by criteria.
+      * @param criteria filtering criteria
+      * @return the count of ${entityInstancePlural}
+      */
+      public Mono<Long> countByCriteria(${entityClass}Criteria criteria);
+#end## A
+
+#foreach($relationship in $relationships)## A
+#if($relationship.relationshipOneToOne && !$relationship.ownerSide)## A-1
+    /**
+     * Get all the ${restClass} where ${relationship.relationshipNameCapitalized} is {@code null}.
+     *
+     * @return the {@link ${listOrFlux}} of entities.
+     */
+    ${listOrFlux}<${instanceType}> findAllWhere${relationship.relationshipNameCapitalized}IsNull();
+#end## A-1
+#end## A
+
+#if($implementsEagerLoadApis)## A
+    /**
+     * Get all the ${entityInstancePlural} with eager load of many-to-many relationships.
+     *
+     * @param pageable the pagination information.
+     * @return the list of entities.
+     */
+    ${pageOrFlux}<${instanceType}> findAllWithEagerRelationships(Pageable pageable);
+
+#end## A
+#if($reactive)## A
+    /**
+    * Returns the number of ${entityInstancePlural} available.
+    * @return the number of entities in the database.
+    *
+    */
+    Mono<Long> countAll();
+#if($searchEngineElasticsearch)## A-1
+
+    /**
+    * Returns the number of ${entityInstancePlural} available in search repository.
+    *
+    */
+    Mono<Long> searchCount();
+#end## A-1
+
+#end## A
+
+    /**
+     * Get the "id" ${entityInstance}.
+     *
+     * @param id the id of the entity.
+     * @return the entity.
+     */
+    ${optionalOrMono}<${instanceType}> findOne(${primaryKey.type} id);
+
+    /**
+     * Delete the "id" ${entityInstance}.
+     *
+     * @param id the id of the entity.
+#if($reactive)## A
+     * @return a Mono to signal the deletion
+#end## A
+     */
+    ${monoVoidOrVoid} delete(${primaryKey.type} id);
+#if($searchEngineAny)## A
+
+    /**
+     * Search for the ${entityInstance} corresponding to the query.
+     *
+     * @param query the query of the search.
+#if(!$paginationNo)## A-1
+     *
+     * @param pageable the pagination information.
+#end## A-1
+     * @return the list of entities.
+     */
+    $emptyStr#{if}(!$paginationNo)${pageOrFlux}#{else}${listOrFlux}#{end}<${instanceType}> search(String query#{if}(!$paginationNo), Pageable pageable#{end});
+#end## A
+}
